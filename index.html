@@ -7,7 +7,8 @@
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     html, body { width: 100%; height: 100%; background: #111; overflow: hidden; }
-    #canvas { display: block; image-rendering: pixelated; }
+    #canvas { display: block; image-rendering: pixelated; touch-action: none; }
+    #canvas.cell-selecting { cursor: crosshair; }
 
     /* ── Interaction prompt ── */
     #interact-hint {
@@ -122,26 +123,218 @@
     }
     #btn-e:active { background: rgba(102,153,204,0.5); }
 
-    /* ── Dev mode label ── */
-    #dev-label {
+    /* ── Dev tools ── */
+    #dev-tools {
       position: fixed;
       top: 8px;
       right: 12px;
+      z-index: 25;
+      width: 190px;
+      color: rgba(255,255,255,0.9);
       font-family: monospace;
       font-size: 11px;
-      color: rgba(255,200,80,0.8);
-      background: rgba(0,0,0,0.5);
-      padding: 3px 6px;
-      border-radius: 3px;
-      z-index: 10;
-      pointer-events: none;
     }
+    #dev-label {
+      display: block;
+      color: rgba(255,200,80,0.9);
+      background: rgba(0,0,0,0.68);
+      padding: 4px 6px;
+      border-radius: 3px;
+      text-align: right;
+    }
+    #cell-selector {
+      margin-top: 6px;
+      background: rgba(10,10,20,0.9);
+      border: 1px solid rgba(255,255,255,0.25);
+      border-radius: 5px;
+      padding: 8px;
+    }
+    #cell-selector label {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      cursor: pointer;
+      color: #fff;
+      font-weight: bold;
+    }
+    #cell-selector input {
+      width: 14px;
+      height: 14px;
+      margin: 0;
+      accent-color: #66ccff;
+      cursor: pointer;
+    }
+    #cell-selector-help {
+      margin-top: 5px;
+      color: rgba(210,225,240,0.72);
+      line-height: 1.4;
+    }
+    #grid-outputs {
+      margin-top: 6px;
+      background: rgba(10,10,20,0.9);
+      border: 1px solid rgba(102,204,255,0.45);
+      border-radius: 5px;
+      padding: 8px;
+      display: none;
+    }
+    #grid-outputs.visible {
+      display: block;
+    }
+    #grid-outputs-title {
+      color: #66ccff;
+      font-weight: bold;
+      margin-bottom: 6px;
+    }
+    #grid-outputs-list {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 4px;
+      max-height: 130px;
+      overflow-y: auto;
+    }
+    .grid-output {
+      color: #07111a;
+      background: #9de5ff;
+      border-radius: 3px;
+      padding: 2px 4px;
+      font-size: 10px;
+      font-weight: bold;
+    }
+    #grid-outputs-empty {
+      color: rgba(255,255,255,0.55);
+    }
+
+    /* ── Save / Load controls ── */
+    #scene-controls {
+      position: fixed;
+      left: 50%;
+      transform: translateX(-50%);
+      display: flex;
+      gap: 12px;
+      z-index: 22;
+      font-family: 'Courier New', monospace;
+    }
+    .scene-btn {
+      background: rgba(10,10,30,0.9);
+      border: 2px solid #6699cc;
+      border-radius: 6px;
+      color: #dbeaff;
+      font-family: inherit;
+      font-size: 14px;
+      font-weight: bold;
+      letter-spacing: 1px;
+      padding: 8px 22px;
+      cursor: pointer;
+    }
+    .scene-btn:hover { background: rgba(40,70,120,0.95); color: #fff; }
+
+    /* ── Save / Load overlay ── */
+    #slots-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.72);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 40;
+      font-family: 'Courier New', monospace;
+    }
+    #slots-overlay.open { display: flex; }
+    #slots-panel {
+      width: min(760px, 94vw);
+      max-height: 90vh;
+      overflow-y: auto;
+      background: rgba(10,10,30,0.97);
+      border: 3px solid #6699cc;
+      border-radius: 10px;
+      padding: 18px;
+      color: #eef;
+    }
+    #slots-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 14px;
+    }
+    #slots-title { color: #ffcc00; font-weight: bold; letter-spacing: 1px; }
+    #slots-close {
+      background: none;
+      border: 1px solid rgba(255,255,255,0.4);
+      border-radius: 4px;
+      color: #eef;
+      cursor: pointer;
+      font-family: inherit;
+      padding: 3px 9px;
+    }
+    #slots-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      grid-template-rows: repeat(2, 1fr);
+      gap: 12px;
+    }
+    .slot {
+      border: 2px dashed rgba(255,255,255,0.28);
+      border-radius: 8px;
+      background: rgba(255,255,255,0.04);
+      padding: 12px;
+      min-height: 108px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      cursor: pointer;
+    }
+    .slot:hover { border-color: #66ccff; background: rgba(102,204,255,0.10); }
+    .slot.filled { border-style: solid; border-color: rgba(153,229,255,0.6); }
+    .slot.disabled { opacity: 0.4; cursor: not-allowed; }
+    .slot-index { font-size: 10px; color: rgba(255,255,255,0.5); letter-spacing: 1px; }
+    .slot-name { font-size: 14px; font-weight: bold; color: #ffcc00; }
+    .slot-meta { font-size: 11px; color: rgba(210,225,240,0.75); line-height: 1.5; }
+    .slot-empty { font-size: 13px; color: rgba(255,255,255,0.45); margin: auto; }
+    .slot-actions { margin-top: auto; display: flex; gap: 6px; }
+    .slot-action {
+      background: rgba(255,255,255,0.08);
+      border: 1px solid rgba(255,255,255,0.25);
+      border-radius: 4px;
+      color: #dbeaff;
+      cursor: pointer;
+      font-family: inherit;
+      font-size: 10px;
+      padding: 2px 7px;
+    }
+    .slot-action:hover { background: rgba(255,255,255,0.2); }
+    #slots-pager {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 14px;
+      margin-top: 14px;
+      font-size: 12px;
+      color: rgba(220,235,255,0.85);
+    }
+    .pager-btn {
+      background: rgba(255,255,255,0.08);
+      border: 1px solid rgba(255,255,255,0.3);
+      border-radius: 4px;
+      color: #eef;
+      cursor: pointer;
+      font-family: inherit;
+      padding: 3px 10px;
+    }
+    .pager-btn:disabled { opacity: 0.35; cursor: not-allowed; }
+    #slots-toast {
+      margin-top: 10px;
+      text-align: center;
+      font-size: 12px;
+      color: #9de5ff;
+      min-height: 16px;
+    }
+
   </style>
 </head>
 <body>
 
 <canvas id="canvas"></canvas>
-<div id="interact-hint">[ E ] Interact</div>
+<div id="interact-hint">[E]</div>
 <div id="dialog">
   <div class="dialog-name" id="dialog-name"></div>
   <div id="dialog-text"></div>
@@ -158,7 +351,41 @@
 </div>
 <div id="btn-e">E</div>
 
-<div id="dev-label">DEV MODE — Grid: 16×10 &nbsp;|&nbsp; <span id="cell-pos">C0R0</span></div>
+<div id="scene-controls">
+  <button class="scene-btn" id="btn-save" type="button">SAVE</button>
+  <button class="scene-btn" id="btn-load" type="button">LOAD</button>
+</div>
+
+<div id="slots-overlay">
+  <div id="slots-panel">
+    <div id="slots-header">
+      <div id="slots-title">SAVE GAME</div>
+      <button id="slots-close" type="button">CLOSE</button>
+    </div>
+    <div id="slots-grid"></div>
+    <div id="slots-pager">
+      <button class="pager-btn" id="slots-prev" type="button">◀ PREV</button>
+      <span id="slots-page-label">Page 1 / 10</span>
+      <button class="pager-btn" id="slots-next" type="button">NEXT ▶</button>
+    </div>
+    <div id="slots-toast"></div>
+  </div>
+</div>
+
+<div id="dev-tools">
+  <div id="dev-label">DEV MODE — Grid: 32×20 &nbsp;|&nbsp; <span id="cell-pos">C0R0</span></div>
+  <div id="cell-selector">
+    <label for="select-cells">
+      <input id="select-cells" type="checkbox">
+      Select Cells
+    </label>
+    <div id="cell-selector-help">Hold and drag across the room grid.</div>
+  </div>
+  <div id="grid-outputs">
+    <div id="grid-outputs-title">Grid Outputs <span id="grid-output-count">(0)</span></div>
+    <div id="grid-outputs-list"><span id="grid-outputs-empty">No cells selected</span></div>
+  </div>
+</div>
 
 <script>
 // ═══════════════════════════════════════════════════════════
@@ -166,8 +393,8 @@
 // ═══════════════════════════════════════════════════════════
 const ROOM_W   = 1485;
 const ROOM_H   = 1059;
-const COLS     = 16;
-const ROWS     = 10;
+const COLS     = 32;
+const ROWS     = 20;
 const CELL_W   = ROOM_W / COLS;   // 185.625
 const CELL_H   = ROOM_H / ROWS;   // 211.8
 
@@ -181,14 +408,55 @@ const CHAR_H   = 160;
 const BOB_AMP  = 3;   // room-pixels
 const BOB_FREQ = 8;   // cycles per second (while moving)
 
-// ── Interactive cells (col 0-7, row 0-4) ──────────────────
-// Add entries here as you discover which cells should trigger interactions.
-// Format: "col,row": { name: "...", text: "..." }
-const INTERACTIONS = {
-  // EXAMPLE — uncomment or edit:
-  // "3,2": { name: "Sign", text: "A wooden sign. It reads: 'Welcome, traveller.'" },
-  // "1,0": { name: "Chest", text: "An old chest. It is empty." },
+// ── Scenes ─────────────────────────────
+// Each scene has its own background, walkable cells and spawn cell.
+const SCENES = {
+  'scene-1': {
+    background: 'assets/room1.png',
+    spawn: { col: 23, row: 9 },
+    walkable: "C6R6C7R6C8R6C6R7C7R7C8R7C6R8C7R8C8R8C6R9C7R9C8R9C6R10C7R10C8R10C6R11C7R11C8R11C6R12C7R12C8R12C6R13C7R13C8R13C6R14C7R14C8R14C6R15C7R15C8R15C9R15C10R15C11R15C12R15C13R15C14R15C15R15C16R15C17R15C18R15C19R15C20R15C21R15C22R15C23R15C24R15C25R15C26R15C27R15C9R7C9R8C9R9C9R10C9R11C9R12C9R13C9R14C6R5C4R7C5R7C9R7C10R7C11R7C12R7C13R7C14R7C15R7C16R7C17R7C18R7C19R7C20R7C21R7C22R7C23R7C24R7C25R7C26R7C27R7C9R8C10R8C11R8C12R8C13R8C14R8C15R8C16R8C17R8C18R8C19R8C20R8C21R8C22R8C23R8C24R8C25R8C26R8C27R8C11R6C12R6C13R6C14R6C15R6C16R6C17R6C18R6C19R6C20R6C21R6C16R5C17R5C18R5C19R5C20R5C21R5C17R4C18R4C19R4C21R5C21R6C21R7C21R8C20R7C21R7C22R7C23R7C24R7C25R7C26R7C20R8C21R8C22R8C23R8C24R8C25R8C26R8C17R14C18R14C19R14C20R14C21R14C22R14C23R14C24R14C25R14C16R6C17R6C18R6C19R6C20R6C16R7C17R7C18R7C19R7C20R7C16R8C17R8C18R8C19R8C20R8C16R9C17R9C18R9C19R9C20R9C16R10C17R10C18R10C19R10C20R10C16R11C17R11C18R11C19R11C20R11C16R12C17R12C18R12C19R12C20R12C17R13C18R13C19R13C20R13C17R14C18R14C19R14C20R14C21R9C22R9C23R9C24R9C13R13C14R13C13R14C14R14C13R10C13R11C13R12C10R9C11R9C12R9C10R12C11R12C12R12C13R12C13R9C13R10C13R11C13R12",
+
+    // Interact-cells: standing on any cell in `cells` shows the interact icon
+    // at the `icon` cell. Press E to open that interaction's dialogue.
+    interacts: [
+      { cells: "C9R7C10R7",                      icon: "C10R4", name: "", text: "" },
+      { cells: "C22R7C23R7C24R7",                icon: "C23R3", name: "", text: "" },
+      { cells: "C6R10C6R11C6R12",                icon: "C4R10", name: "", text: "" },
+      { cells: "C13R16C14R16C15R16C16R16C17R16", icon: "C15R17", name: "", text: "" },
+      { cells: "C7R6C6R5",                       icon: "C7R3",  name: "", text: "" },
+    ],
+  },
+
 };
+
+const CURRENT_SCENE = 'scene-1';
+const scene = SCENES[CURRENT_SCENE];
+
+function parseCells(input) {
+  const set = new Set();
+  input.replace(/C(\d+)R(\d+)/g, (_, c, r) => set.add(`${c},${r}`));
+  return set;
+}
+
+// Only these cells are walkable in the current scene; all others are blocked.
+const WALKABLE = parseCells(scene.walkable);
+
+// ── Interact-cells for the current scene ──────────────────
+// Each entry: trigger cells (Set) + the cell where the icon appears.
+const INTERACTS = (scene.interacts || []).map(def => {
+  const m = /C(\d+)R(\d+)/.exec(def.icon) || [];
+  return {
+    cells: parseCells(def.cells),
+    iconCol: Number(m[1]),
+    iconRow: Number(m[2]),
+    name: def.name || '',
+    text: def.text || '',
+  };
+});
+
+// The interaction whose trigger cell the player is currently standing on.
+let activeInteract = null;
+
 
 // ═══════════════════════════════════════════════════════════
 //  STATE
@@ -201,8 +469,8 @@ let offsetX = 0;      // canvas offset to center room
 let offsetY = 0;
 
 let player = {
-  x: ROOM_W / 2,
-  y: ROOM_H / 2 + CELL_H,   // start one row below center
+  x: (scene.spawn.col + 0.5) * CELL_W,   // scene spawn cell
+  y: (scene.spawn.row + 0.5) * CELL_H,
   dir: 'idle',
   moving: false,
   bobTime: 0,
@@ -211,11 +479,15 @@ let player = {
 let keys = { up: false, down: false, left: false, right: false };
 let dialogOpen = false;
 let lastTime = 0;
+let selectMode = false;
+let selectingCells = false;
+let selectionStart = null;
+let selectedCells = new Set();
 
 // Sprite images
 const sprites = {};
 let assetsLoaded = 0;
-const TOTAL_ASSETS = 5;
+const TOTAL_ASSETS = 6;
 
 // ═══════════════════════════════════════════════════════════
 //  ASSET LOADING
@@ -228,11 +500,12 @@ function loadImage(key, src) {
   sprites[key] = img;
 }
 
-loadImage('room',  'assets/room1.png');
+loadImage('room',  scene.background);
 loadImage('idle',  'sprites/idle.png');
 loadImage('left',  'sprites/left.png');
 loadImage('right', 'sprites/right.png');
 loadImage('up',    'sprites/up.png');
+loadImage('interact', 'icons/interact.png');
 
 // ═══════════════════════════════════════════════════════════
 //  RESIZE
@@ -247,9 +520,135 @@ function resize() {
 
   offsetX = (canvas.width  - ROOM_W * scale) / 2;
   offsetY = (canvas.height - ROOM_H * scale) / 2;
+
+  positionSceneControls();
+}
+
+function positionSceneControls() {
+  const controls = document.getElementById('scene-controls');
+  if (!controls) return;
+  const roomBottom = offsetY + ROOM_H * scale;
+  const top = Math.min(roomBottom + 10, window.innerHeight - 52);
+  controls.style.top = Math.max(8, top) + 'px';
 }
 window.addEventListener('resize', resize);
 resize();
+
+// ═══════════════════════════════════════════════════════════
+//  INPUT — DEV CELL SELECTOR
+// ═══════════════════════════════════════════════════════════
+const selectCellsInput = document.getElementById('select-cells');
+const gridOutputs = document.getElementById('grid-outputs');
+const gridOutputsList = document.getElementById('grid-outputs-list');
+const gridOutputCount = document.getElementById('grid-output-count');
+
+function clamp(value, min, max) {
+  return Math.max(min, Math.min(max, value));
+}
+
+function roomPointFromEvent(event) {
+  return {
+    x: clamp((event.clientX - offsetX) / scale, 0, ROOM_W - 0.001),
+    y: clamp((event.clientY - offsetY) / scale, 0, ROOM_H - 0.001),
+  };
+}
+
+function cellFromRoomPoint(point) {
+  return {
+    col: clamp(Math.floor(point.x / CELL_W), 0, COLS - 1),
+    row: clamp(Math.floor(point.y / CELL_H), 0, ROWS - 1),
+  };
+}
+
+function isCellWalkable(col, row) {
+  return WALKABLE.has(`${col},${row}`);
+}
+
+function isWalkableAt(x, y) {
+  return isCellWalkable(Math.floor(x / CELL_W), Math.floor(y / CELL_H));
+}
+
+function updateGridOutputs() {
+  gridOutputs.classList.toggle('visible', selectMode);
+  gridOutputCount.textContent = `(${selectedCells.size})`;
+  gridOutputsList.innerHTML = '';
+
+  if (selectedCells.size === 0) {
+    gridOutputsList.innerHTML = '<span id="grid-outputs-empty">No cells selected</span>';
+  } else {
+    [...selectedCells]
+      .sort((a, b) => {
+        const [aCol, aRow] = a.split(',').map(Number);
+        const [bCol, bRow] = b.split(',').map(Number);
+        return aRow - bRow || aCol - bCol;
+      })
+      .forEach(key => {
+        const [col, row] = key.split(',');
+        const output = document.createElement('span');
+        output.className = 'grid-output';
+        output.textContent = `C${col}R${row}`;
+        gridOutputsList.appendChild(output);
+      });
+  }
+
+  
+}
+
+
+function updateCellSelection(endPoint) {
+  const startCell = cellFromRoomPoint(selectionStart);
+  const endCell = cellFromRoomPoint(endPoint);
+  const minCol = Math.min(startCell.col, endCell.col);
+  const maxCol = Math.max(startCell.col, endCell.col);
+  const minRow = Math.min(startCell.row, endCell.row);
+  const maxRow = Math.max(startCell.row, endCell.row);
+
+  selectedCells.clear();
+  for (let row = minRow; row <= maxRow; row++) {
+    for (let col = minCol; col <= maxCol; col++) {
+      selectedCells.add(`${col},${row}`);
+    }
+  }
+  updateGridOutputs();
+}
+
+selectCellsInput.addEventListener('change', () => {
+  selectMode = selectCellsInput.checked;
+  canvas.classList.toggle('cell-selecting', selectMode);
+  if (!selectMode) {
+    selectingCells = false;
+    selectionStart = null;
+  }
+  updateGridOutputs();
+});
+
+canvas.addEventListener('pointerdown', event => {
+  if (!selectMode || event.button !== 0) return;
+  event.preventDefault();
+  selectingCells = true;
+  selectionStart = roomPointFromEvent(event);
+  canvas.setPointerCapture(event.pointerId);
+  updateCellSelection(selectionStart);
+});
+
+canvas.addEventListener('pointermove', event => {
+  if (!selectMode || !selectingCells) return;
+  event.preventDefault();
+  updateCellSelection(roomPointFromEvent(event));
+});
+
+function finishCellSelection(event) {
+  if (!selectingCells) return;
+  event.preventDefault();
+  selectingCells = false;
+  selectionStart = null;
+  if (canvas.hasPointerCapture(event.pointerId)) {
+    canvas.releasePointerCapture(event.pointerId);
+  }
+}
+
+canvas.addEventListener('pointerup', finishCellSelection);
+canvas.addEventListener('pointercancel', finishCellSelection);
 
 // ═══════════════════════════════════════════════════════════
 //  INPUT — KEYBOARD
@@ -317,9 +716,7 @@ function getPlayerCell() {
 
 function tryInteract() {
   const { col, row } = getPlayerCell();
-  const key = `${col},${row}`;
-  const data = INTERACTIONS[key];
-  if (data) openDialog(data);
+  if (activeInteract) openDialog(activeInteract);
 }
 
 function openDialog(data) {
@@ -339,6 +736,7 @@ function closeDialog() {
 // ═══════════════════════════════════════════════════════════
 function update(dt) {
   if (dialogOpen) return;
+  if (slotsOverlay.classList.contains('open')) return;
 
   let dx = 0, dy = 0;
   if (keys.left)  dx -= 1;
@@ -352,8 +750,20 @@ function update(dt) {
   const moving = dx !== 0 || dy !== 0;
 
   if (moving) {
-    player.x += dx * PLAYER_SPEED * dt;
-    player.y += dy * PLAYER_SPEED * dt;
+    let nextX = player.x;
+    let nextY = player.y;
+
+    if (dx !== 0) {
+      const tryX = player.x + dx * PLAYER_SPEED * dt;
+      if (isWalkableAt(tryX, player.y)) nextX = tryX;
+    }
+    if (dy !== 0) {
+      const tryY = player.y + dy * PLAYER_SPEED * dt;
+      if (isWalkableAt(nextX, tryY)) nextY = tryY;
+    }
+
+    player.x = nextX;
+    player.y = nextY;
     player.bobTime += dt;
 
     // Direction — prefer horizontal
@@ -382,9 +792,10 @@ function updateInteractHint() {
   // Update cell position display
   document.getElementById('cell-pos').textContent = `C${col}R${row}`;
 
-  const key = `${col},${row}`;
+  activeInteract = INTERACTS.find(it => it.cells.has(`${col},${row}`)) || null;
+
   const hint = document.getElementById('interact-hint');
-  if (INTERACTIONS[key]) {
+  if (activeInteract) {
     // Position hint above player in screen coords
     const sx = offsetX + player.x * scale;
     const sy = offsetY + player.y * scale;
@@ -422,7 +833,21 @@ function draw() {
   // ── Player ──
   drawPlayer();
 
+  // ── Interact icon ──
+  drawInteractIcon();
+
   ctx.restore();
+}
+
+function drawInteractIcon() {
+  if (!activeInteract || dialogOpen) return;
+  const img = sprites.interact;
+  if (!img || !img.complete || img.naturalWidth === 0) return;
+
+  const size = Math.min(CELL_W, CELL_H) * 0.8;
+  const cx = (activeInteract.iconCol + 0.5) * CELL_W;
+  const cy = (activeInteract.iconRow + 0.5) * CELL_H;
+  ctx.drawImage(img, cx - size / 2, cy - size / 2, size, size);
 }
 
 function drawGrid() {
@@ -435,27 +860,12 @@ function drawGrid() {
       const y = row * CELL_H;
       const key = `${col},${row}`;
 
-      // Highlight interactive cells
-      if (INTERACTIONS[key]) {
-        ctx.fillStyle = 'rgba(255, 220, 80, 0.12)';
+      // Dev-selected cells
+      if (selectedCells.has(key)) {
+        ctx.fillStyle = 'rgba(70, 205, 255, 0.28)';
         ctx.fillRect(x, y, CELL_W, CELL_H);
       }
 
-      // Cell label
-      ctx.font = 'bold 18px monospace';
-      ctx.textAlign = 'left';
-      ctx.textBaseline = 'top';
-      ctx.fillStyle = 'rgba(255,255,255,0.30)';
-      ctx.fillText(`${col},${row}`, x + 6, y + 6);
-
-      // Interactive cell marker
-      if (INTERACTIONS[key]) {
-        ctx.fillStyle = 'rgba(255,220,80,0.8)';
-        ctx.font = 'bold 14px monospace';
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        ctx.fillText('[E]', x + CELL_W / 2, y + CELL_H / 2);
-      }
     }
   }
 
@@ -483,6 +893,17 @@ function drawGrid() {
   }
 
   ctx.setLineDash([]);
+
+  // Strong outline around selected cells so they remain visible over room art.
+  if (selectedCells.size > 0) {
+    ctx.strokeStyle = 'rgba(105,225,255,0.95)';
+    ctx.lineWidth = 3;
+    selectedCells.forEach(key => {
+      const [col, row] = key.split(',').map(Number);
+      ctx.strokeRect(col * CELL_W + 2, row * CELL_H + 2, CELL_W - 4, CELL_H - 4);
+    });
+  }
+
   ctx.restore();
 }
 
@@ -526,6 +947,199 @@ function drawPlayer() {
   ctx.setLineDash([]);
   ctx.restore();
 }
+
+
+// ═══════════════════════════════════════════════════════════
+//  SAVE / LOAD SYSTEM
+// ═══════════════════════════════════════════════════════════
+const SAVE_KEY = 'quest-rpg-saves-v1';
+const TOTAL_SLOTS = 60;
+const SLOTS_PER_PAGE = 6;
+const TOTAL_PAGES = TOTAL_SLOTS / SLOTS_PER_PAGE;
+
+let slotsMode = 'save';   // 'save' | 'load'
+let slotsPage = 0;
+
+const slotsOverlay   = document.getElementById('slots-overlay');
+const slotsGrid      = document.getElementById('slots-grid');
+const slotsTitle     = document.getElementById('slots-title');
+const slotsPageLabel = document.getElementById('slots-page-label');
+const slotsPrev      = document.getElementById('slots-prev');
+const slotsNext      = document.getElementById('slots-next');
+const slotsToast     = document.getElementById('slots-toast');
+
+function readSaves() {
+  try {
+    const raw = localStorage.getItem(SAVE_KEY);
+    const data = raw ? JSON.parse(raw) : null;
+    return (data && typeof data === 'object') ? data : {};
+  } catch (err) {
+    return {};
+  }
+}
+
+function writeSaves(saves) {
+  try {
+    localStorage.setItem(SAVE_KEY, JSON.stringify(saves));
+    return true;
+  } catch (err) {
+    return false;
+  }
+}
+
+function showToast(message) {
+  slotsToast.textContent = message || '';
+}
+
+function captureState() {
+  return {
+    scene: CURRENT_SCENE,
+    x: player.x,
+    y: player.y,
+    dir: player.dir,
+    savedAt: Date.now(),
+  };
+}
+
+function applyState(state) {
+  if (!state) return;
+  player.x = state.x;
+  player.y = state.y;
+  player.dir = state.dir || 'idle';
+  player.moving = false;
+  player.bobTime = 0;
+  keys.up = keys.down = keys.left = keys.right = false;
+  closeDialog();
+}
+
+function cellLabel(state) {
+  const col = Math.max(0, Math.min(COLS - 1, Math.floor(state.x / CELL_W)));
+  const row = Math.max(0, Math.min(ROWS - 1, Math.floor(state.y / CELL_H)));
+  return `C${col}R${row}`;
+}
+
+function renderSlots() {
+  slotsTitle.textContent = slotsMode === 'save' ? 'SAVE GAME' : 'LOAD GAME';
+  slotsPageLabel.textContent = `Page ${slotsPage + 1} / ${TOTAL_PAGES}`;
+  slotsPrev.disabled = slotsPage === 0;
+  slotsNext.disabled = slotsPage === TOTAL_PAGES - 1;
+
+  const saves = readSaves();
+  slotsGrid.innerHTML = '';
+
+  for (let i = 0; i < SLOTS_PER_PAGE; i++) {
+    const index = slotsPage * SLOTS_PER_PAGE + i;
+    const data = saves[index];
+    const slot = document.createElement('div');
+    slot.className = 'slot' + (data ? ' filled' : '');
+    if (!data && slotsMode === 'load') slot.classList.add('disabled');
+
+    const head = document.createElement('div');
+    head.className = 'slot-index';
+    head.textContent = `SLOT ${index + 1}`;
+    slot.appendChild(head);
+
+    if (data) {
+      const name = document.createElement('div');
+      name.className = 'slot-name';
+      name.textContent = data.name || `Save ${index + 1}`;
+      slot.appendChild(name);
+
+      const meta = document.createElement('div');
+      meta.className = 'slot-meta';
+      meta.textContent = `${data.scene} · ${cellLabel(data)}\n${new Date(data.savedAt).toLocaleString()}`;
+      meta.style.whiteSpace = 'pre-line';
+      slot.appendChild(meta);
+
+      const actions = document.createElement('div');
+      actions.className = 'slot-actions';
+
+      const renameBtn = document.createElement('button');
+      renameBtn.className = 'slot-action';
+      renameBtn.type = 'button';
+      renameBtn.textContent = 'RENAME';
+      renameBtn.addEventListener('click', e => {
+        e.stopPropagation();
+        const next = prompt('Save name (optional):', data.name || '');
+        if (next === null) return;
+        const all = readSaves();
+        if (!all[index]) return;
+        all[index].name = next.trim();
+        writeSaves(all);
+        renderSlots();
+        showToast(`Slot ${index + 1} renamed.`);
+      });
+      actions.appendChild(renameBtn);
+
+      const deleteBtn = document.createElement('button');
+      deleteBtn.className = 'slot-action';
+      deleteBtn.type = 'button';
+      deleteBtn.textContent = 'DELETE';
+      deleteBtn.addEventListener('click', e => {
+        e.stopPropagation();
+        if (!confirm(`Delete slot ${index + 1}?`)) return;
+        const all = readSaves();
+        delete all[index];
+        writeSaves(all);
+        renderSlots();
+        showToast(`Slot ${index + 1} deleted.`);
+      });
+      actions.appendChild(deleteBtn);
+
+      slot.appendChild(actions);
+    } else {
+      const empty = document.createElement('div');
+      empty.className = 'slot-empty';
+      empty.textContent = slotsMode === 'save' ? '— Empty —' : '— No data —';
+      slot.appendChild(empty);
+    }
+
+    slot.addEventListener('click', () => {
+      if (slotsMode === 'save') {
+        if (data && !confirm(`Overwrite slot ${index + 1}?`)) return;
+        const suggested = data && data.name ? data.name : '';
+        const name = prompt('Name this save (optional):', suggested);
+        if (name === null) return;
+        const all = readSaves();
+        all[index] = Object.assign(captureState(), { name: name.trim() });
+        if (writeSaves(all)) {
+          renderSlots();
+          showToast(`Game saved to slot ${index + 1}.`);
+        } else {
+          showToast('Could not save — storage unavailable.');
+        }
+      } else {
+        if (!data) return;
+        applyState(data);
+        closeSlots();
+      }
+    });
+
+    slotsGrid.appendChild(slot);
+  }
+}
+
+function openSlots(mode) {
+  slotsMode = mode;
+  slotsPage = 0;
+  showToast('');
+  slotsOverlay.classList.add('open');
+  renderSlots();
+}
+
+function closeSlots() {
+  slotsOverlay.classList.remove('open');
+}
+
+document.getElementById('btn-save').addEventListener('click', () => openSlots('save'));
+document.getElementById('btn-load').addEventListener('click', () => openSlots('load'));
+document.getElementById('slots-close').addEventListener('click', closeSlots);
+slotsPrev.addEventListener('click', () => { if (slotsPage > 0) { slotsPage--; renderSlots(); } });
+slotsNext.addEventListener('click', () => { if (slotsPage < TOTAL_PAGES - 1) { slotsPage++; renderSlots(); } });
+slotsOverlay.addEventListener('click', e => { if (e.target === slotsOverlay) closeSlots(); });
+window.addEventListener('keydown', e => {
+  if (e.code === 'Escape' && slotsOverlay.classList.contains('open')) closeSlots();
+});
 
 // ═══════════════════════════════════════════════════════════
 //  GAME LOOP
