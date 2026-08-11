@@ -1,0 +1,551 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>RPG Game</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html, body { width: 100%; height: 100%; background: #111; overflow: hidden; }
+    #canvas { display: block; image-rendering: pixelated; }
+
+    /* ── Interaction prompt ── */
+    #interact-hint {
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -130%);
+      background: rgba(0,0,0,0.75);
+      color: #fff;
+      font-family: 'Courier New', monospace;
+      font-size: 14px;
+      padding: 6px 12px;
+      border: 2px solid #ffcc00;
+      border-radius: 4px;
+      pointer-events: none;
+      display: none;
+      z-index: 10;
+    }
+
+    /* ── Dialog box ── */
+    #dialog {
+      position: fixed;
+      bottom: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: min(700px, 90vw);
+      background: rgba(10,10,30,0.93);
+      border: 3px solid #6699cc;
+      border-radius: 8px;
+      padding: 16px 20px;
+      color: #eef;
+      font-family: 'Courier New', monospace;
+      font-size: 15px;
+      line-height: 1.6;
+      display: none;
+      z-index: 20;
+    }
+    #dialog .dialog-name {
+      color: #ffcc00;
+      font-weight: bold;
+      margin-bottom: 6px;
+      font-size: 13px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+    #dialog .dialog-close {
+      text-align: right;
+      font-size: 11px;
+      color: #88aacc;
+      margin-top: 8px;
+    }
+
+    /* ── Mobile D-pad ── */
+    #dpad {
+      position: fixed;
+      bottom: 24px;
+      left: 24px;
+      width: 138px;
+      height: 138px;
+      display: none;
+      z-index: 15;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+    .dpad-btn {
+      position: absolute;
+      width: 42px;
+      height: 42px;
+      background: rgba(255,255,255,0.15);
+      border: 2px solid rgba(255,255,255,0.35);
+      border-radius: 6px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 18px;
+      color: rgba(255,255,255,0.8);
+      cursor: pointer;
+      touch-action: none;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .dpad-btn:active, .dpad-btn.pressed {
+      background: rgba(255,255,255,0.35);
+      border-color: rgba(255,255,255,0.7);
+    }
+    #dpad-up    { top: 0;    left: 48px; }
+    #dpad-left  { top: 48px; left: 0;    }
+    #dpad-center{ top: 48px; left: 48px; background: rgba(255,255,255,0.05); border-color: rgba(255,255,255,0.1); }
+    #dpad-right { top: 48px; left: 96px; }
+    #dpad-down  { top: 96px; left: 48px; }
+
+    /* ── Mobile E button ── */
+    #btn-e {
+      position: fixed;
+      bottom: 60px;
+      right: 24px;
+      width: 54px;
+      height: 54px;
+      background: rgba(102,153,204,0.25);
+      border: 2px solid rgba(102,153,204,0.6);
+      border-radius: 50%;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      font-family: 'Courier New', monospace;
+      font-size: 18px;
+      font-weight: bold;
+      color: #fff;
+      cursor: pointer;
+      z-index: 15;
+      touch-action: none;
+      -webkit-tap-highlight-color: transparent;
+    }
+    #btn-e:active { background: rgba(102,153,204,0.5); }
+
+    /* ── Dev mode label ── */
+    #dev-label {
+      position: fixed;
+      top: 8px;
+      right: 12px;
+      font-family: monospace;
+      font-size: 11px;
+      color: rgba(255,200,80,0.8);
+      background: rgba(0,0,0,0.5);
+      padding: 3px 6px;
+      border-radius: 3px;
+      z-index: 10;
+      pointer-events: none;
+    }
+  </style>
+</head>
+<body>
+
+<canvas id="canvas"></canvas>
+<div id="interact-hint">[ E ] Interact</div>
+<div id="dialog">
+  <div class="dialog-name" id="dialog-name"></div>
+  <div id="dialog-text"></div>
+  <div class="dialog-close">[ E ] or [ Space ] to close</div>
+</div>
+
+<!-- Mobile D-pad -->
+<div id="dpad">
+  <div class="dpad-btn" id="dpad-up">▲</div>
+  <div class="dpad-btn" id="dpad-left">◀</div>
+  <div class="dpad-btn" id="dpad-center"></div>
+  <div class="dpad-btn" id="dpad-right">▶</div>
+  <div class="dpad-btn" id="dpad-down">▼</div>
+</div>
+<div id="btn-e">E</div>
+
+<div id="dev-label">DEV MODE — Grid: 16×10 &nbsp;|&nbsp; <span id="cell-pos">C0R0</span></div>
+
+<script>
+// ═══════════════════════════════════════════════════════════
+//  CONFIGURATION
+// ═══════════════════════════════════════════════════════════
+const ROOM_W   = 1485;
+const ROOM_H   = 1059;
+const COLS     = 16;
+const ROWS     = 10;
+const CELL_W   = ROOM_W / COLS;   // 185.625
+const CELL_H   = ROOM_H / ROWS;   // 211.8
+
+// Player speed in room-pixels per second
+const PLAYER_SPEED = 280;
+
+// Character render height in room-pixels (roughly one cell tall)
+const CHAR_H   = 160;
+
+// Walk-bob amplitude and frequency
+const BOB_AMP  = 3;   // room-pixels
+const BOB_FREQ = 8;   // cycles per second (while moving)
+
+// ── Interactive cells (col 0-7, row 0-4) ──────────────────
+// Add entries here as you discover which cells should trigger interactions.
+// Format: "col,row": { name: "...", text: "..." }
+const INTERACTIONS = {
+  // EXAMPLE — uncomment or edit:
+  // "3,2": { name: "Sign", text: "A wooden sign. It reads: 'Welcome, traveller.'" },
+  // "1,0": { name: "Chest", text: "An old chest. It is empty." },
+};
+
+// ═══════════════════════════════════════════════════════════
+//  STATE
+// ═══════════════════════════════════════════════════════════
+const canvas = document.getElementById('canvas');
+const ctx    = canvas.getContext('2d');
+
+let scale = 1;        // canvas-pixels per room-pixel
+let offsetX = 0;      // canvas offset to center room
+let offsetY = 0;
+
+let player = {
+  x: ROOM_W / 2,
+  y: ROOM_H / 2 + CELL_H,   // start one row below center
+  dir: 'idle',
+  moving: false,
+  bobTime: 0,
+};
+
+let keys = { up: false, down: false, left: false, right: false };
+let dialogOpen = false;
+let lastTime = 0;
+
+// Sprite images
+const sprites = {};
+let assetsLoaded = 0;
+const TOTAL_ASSETS = 5;
+
+// ═══════════════════════════════════════════════════════════
+//  ASSET LOADING
+// ═══════════════════════════════════════════════════════════
+function loadImage(key, src) {
+  const img = new Image();
+  img.onload  = () => { assetsLoaded++; if (assetsLoaded === TOTAL_ASSETS) startGame(); };
+  img.onerror = () => { assetsLoaded++; if (assetsLoaded === TOTAL_ASSETS) startGame(); };
+  img.src = src;
+  sprites[key] = img;
+}
+
+loadImage('room',  'assets/room1.png');
+loadImage('idle',  'sprites/idle.png');
+loadImage('left',  'sprites/left.png');
+loadImage('right', 'sprites/right.png');
+loadImage('up',    'sprites/up.png');
+
+// ═══════════════════════════════════════════════════════════
+//  RESIZE
+// ═══════════════════════════════════════════════════════════
+function resize() {
+  canvas.width  = window.innerWidth;
+  canvas.height = window.innerHeight;
+
+  const scaleX = canvas.width  / ROOM_W;
+  const scaleY = canvas.height / ROOM_H;
+  scale = Math.min(scaleX, scaleY);
+
+  offsetX = (canvas.width  - ROOM_W * scale) / 2;
+  offsetY = (canvas.height - ROOM_H * scale) / 2;
+}
+window.addEventListener('resize', resize);
+resize();
+
+// ═══════════════════════════════════════════════════════════
+//  INPUT — KEYBOARD
+// ═══════════════════════════════════════════════════════════
+window.addEventListener('keydown', e => {
+  if (e.repeat) return;
+  switch (e.code) {
+    case 'ArrowUp':    case 'KeyW': keys.up    = true; break;
+    case 'ArrowDown':  case 'KeyS': keys.down  = true; break;
+    case 'ArrowLeft':  case 'KeyA': keys.left  = true; break;
+    case 'ArrowRight': case 'KeyD': keys.right = true; break;
+    case 'KeyE': case 'Space':
+      if (dialogOpen) closeDialog();
+      else tryInteract();
+      break;
+  }
+});
+window.addEventListener('keyup', e => {
+  switch (e.code) {
+    case 'ArrowUp':    case 'KeyW': keys.up    = false; break;
+    case 'ArrowDown':  case 'KeyS': keys.down  = false; break;
+    case 'ArrowLeft':  case 'KeyA': keys.left  = false; break;
+    case 'ArrowRight': case 'KeyD': keys.right = false; break;
+  }
+});
+
+// ═══════════════════════════════════════════════════════════
+//  INPUT — MOBILE D-PAD
+// ═══════════════════════════════════════════════════════════
+function isMobile() {
+  return ('ontouchstart' in window) || navigator.maxTouchPoints > 0;
+}
+
+function setupDpad() {
+  if (!isMobile()) return;
+  document.getElementById('dpad').style.display = 'block';
+  document.getElementById('btn-e').style.display = 'flex';
+
+  const map = {
+    'dpad-up':    'up',
+    'dpad-down':  'down',
+    'dpad-left':  'left',
+    'dpad-right': 'right',
+  };
+
+  Object.entries(map).forEach(([id, dir]) => {
+    const btn = document.getElementById(id);
+    btn.addEventListener('touchstart', e => { e.preventDefault(); keys[dir] = true;  btn.classList.add('pressed'); },    { passive: false });
+    btn.addEventListener('touchend',   e => { e.preventDefault(); keys[dir] = false; btn.classList.remove('pressed'); }, { passive: false });
+    btn.addEventListener('touchcancel',e => { e.preventDefault(); keys[dir] = false; btn.classList.remove('pressed'); }, { passive: false });
+  });
+
+  const btnE = document.getElementById('btn-e');
+  btnE.addEventListener('touchstart', e => { e.preventDefault(); if (dialogOpen) closeDialog(); else tryInteract(); }, { passive: false });
+}
+
+// ═══════════════════════════════════════════════════════════
+//  INTERACTION
+// ═══════════════════════════════════════════════════════════
+function getPlayerCell() {
+  const col = Math.floor(player.x / CELL_W);
+  const row = Math.floor(player.y / CELL_H);
+  return { col: Math.max(0, Math.min(COLS-1, col)), row: Math.max(0, Math.min(ROWS-1, row)) };
+}
+
+function tryInteract() {
+  const { col, row } = getPlayerCell();
+  const key = `${col},${row}`;
+  const data = INTERACTIONS[key];
+  if (data) openDialog(data);
+}
+
+function openDialog(data) {
+  dialogOpen = true;
+  document.getElementById('dialog-name').textContent = data.name || '';
+  document.getElementById('dialog-text').textContent = data.text || '';
+  document.getElementById('dialog').style.display = 'block';
+}
+
+function closeDialog() {
+  dialogOpen = false;
+  document.getElementById('dialog').style.display = 'none';
+}
+
+// ═══════════════════════════════════════════════════════════
+//  UPDATE
+// ═══════════════════════════════════════════════════════════
+function update(dt) {
+  if (dialogOpen) return;
+
+  let dx = 0, dy = 0;
+  if (keys.left)  dx -= 1;
+  if (keys.right) dx += 1;
+  if (keys.up)    dy -= 1;
+  if (keys.down)  dy += 1;
+
+  // Normalise diagonal
+  if (dx !== 0 && dy !== 0) { dx *= 0.7071; dy *= 0.7071; }
+
+  const moving = dx !== 0 || dy !== 0;
+
+  if (moving) {
+    player.x += dx * PLAYER_SPEED * dt;
+    player.y += dy * PLAYER_SPEED * dt;
+    player.bobTime += dt;
+
+    // Direction — prefer horizontal
+    if (Math.abs(dx) >= Math.abs(dy)) {
+      player.dir = dx < 0 ? 'left' : 'right';
+    } else {
+      player.dir = dy < 0 ? 'up' : 'idle';  // 'idle' = facing down/toward camera
+    }
+  } else {
+    player.dir = 'idle';
+    player.bobTime = 0;
+  }
+  player.moving = moving;
+
+  // Clamp to room bounds
+  player.x = Math.max(CHAR_H * 0.3, Math.min(ROOM_W - CHAR_H * 0.3, player.x));
+  player.y = Math.max(CHAR_H * 0.2, Math.min(ROOM_H - CHAR_H * 0.1, player.y));
+
+  // Update interact hint
+  updateInteractHint();
+}
+
+function updateInteractHint() {
+  const { col, row } = getPlayerCell();
+
+  // Update cell position display
+  document.getElementById('cell-pos').textContent = `C${col}R${row}`;
+
+  const key = `${col},${row}`;
+  const hint = document.getElementById('interact-hint');
+  if (INTERACTIONS[key]) {
+    // Position hint above player in screen coords
+    const sx = offsetX + player.x * scale;
+    const sy = offsetY + player.y * scale;
+    hint.style.left = sx + 'px';
+    hint.style.top  = (sy - CHAR_H * scale * 0.8) + 'px';
+    hint.style.display = 'block';
+  } else {
+    hint.style.display = 'none';
+  }
+}
+
+// ═══════════════════════════════════════════════════════════
+//  RENDER
+// ═══════════════════════════════════════════════════════════
+function draw() {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  ctx.fillStyle = '#000';
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  ctx.save();
+  ctx.translate(offsetX, offsetY);
+  ctx.scale(scale, scale);
+
+  // ── Background room ──
+  if (sprites.room.complete && sprites.room.naturalWidth > 0) {
+    ctx.drawImage(sprites.room, 0, 0, ROOM_W, ROOM_H);
+  } else {
+    ctx.fillStyle = '#1a1a2e';
+    ctx.fillRect(0, 0, ROOM_W, ROOM_H);
+  }
+
+  // ── Dev grid overlay ──
+  drawGrid();
+
+  // ── Player ──
+  drawPlayer();
+
+  ctx.restore();
+}
+
+function drawGrid() {
+  ctx.save();
+
+  // Very subtle fill per cell (checkerboard-ish)
+  for (let row = 0; row < ROWS; row++) {
+    for (let col = 0; col < COLS; col++) {
+      const x = col * CELL_W;
+      const y = row * CELL_H;
+      const key = `${col},${row}`;
+
+      // Highlight interactive cells
+      if (INTERACTIONS[key]) {
+        ctx.fillStyle = 'rgba(255, 220, 80, 0.12)';
+        ctx.fillRect(x, y, CELL_W, CELL_H);
+      }
+
+      // Cell label
+      ctx.font = 'bold 18px monospace';
+      ctx.textAlign = 'left';
+      ctx.textBaseline = 'top';
+      ctx.fillStyle = 'rgba(255,255,255,0.30)';
+      ctx.fillText(`${col},${row}`, x + 6, y + 6);
+
+      // Interactive cell marker
+      if (INTERACTIONS[key]) {
+        ctx.fillStyle = 'rgba(255,220,80,0.8)';
+        ctx.font = 'bold 14px monospace';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('[E]', x + CELL_W / 2, y + CELL_H / 2);
+      }
+    }
+  }
+
+  // Grid lines — dashed, very subtle
+  ctx.strokeStyle = 'rgba(255,255,255,0.18)';
+  ctx.lineWidth = 1;
+  ctx.setLineDash([6, 8]);
+
+  // Vertical lines
+  for (let col = 0; col <= COLS; col++) {
+    const x = col * CELL_W;
+    ctx.beginPath();
+    ctx.moveTo(x, 0);
+    ctx.lineTo(x, ROOM_H);
+    ctx.stroke();
+  }
+
+  // Horizontal lines
+  for (let row = 0; row <= ROWS; row++) {
+    const y = row * CELL_H;
+    ctx.beginPath();
+    ctx.moveTo(0, y);
+    ctx.lineTo(ROOM_W, y);
+    ctx.stroke();
+  }
+
+  ctx.setLineDash([]);
+  ctx.restore();
+}
+
+function drawPlayer() {
+  const sprKey = player.dir;
+  const img = sprites[sprKey];
+  if (!img || !img.complete || img.naturalWidth === 0) return;
+
+  // Aspect-correct size
+  const charH = CHAR_H;
+  const charW = (img.naturalWidth / img.naturalHeight) * charH;
+
+  // Bob offset while moving
+  const bobY = player.moving
+    ? Math.sin(player.bobTime * BOB_FREQ * Math.PI * 2) * BOB_AMP
+    : 0;
+
+  // Draw centered on player position (feet at player.y)
+  const drawX = player.x - charW / 2;
+  const drawY = player.y - charH + bobY;
+
+  // Shadow
+  ctx.save();
+  ctx.globalAlpha = 0.25;
+  ctx.fillStyle = '#000';
+  ctx.beginPath();
+  ctx.ellipse(player.x, player.y + 2, charW * 0.38, 10, 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.restore();
+
+  // Sprite
+  ctx.drawImage(img, drawX, drawY, charW, charH);
+
+  // Debug: player cell highlight
+  const { col, row } = getPlayerCell();
+  ctx.save();
+  ctx.strokeStyle = 'rgba(100,220,255,0.5)';
+  ctx.lineWidth = 2;
+  ctx.setLineDash([4, 4]);
+  ctx.strokeRect(col * CELL_W + 1, row * CELL_H + 1, CELL_W - 2, CELL_H - 2);
+  ctx.setLineDash([]);
+  ctx.restore();
+}
+
+// ═══════════════════════════════════════════════════════════
+//  GAME LOOP
+// ═══════════════════════════════════════════════════════════
+function loop(timestamp) {
+  const dt = Math.min((timestamp - lastTime) / 1000, 0.05); // cap at 50ms
+  lastTime = timestamp;
+  update(dt);
+  draw();
+  requestAnimationFrame(loop);
+}
+
+function startGame() {
+  setupDpad();
+  lastTime = performance.now();
+  requestAnimationFrame(loop);
+}
+
+// Kick off if images somehow all cached instantly
+if (assetsLoaded === TOTAL_ASSETS) startGame();
+</script>
+</body>
+</html>
