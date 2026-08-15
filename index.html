@@ -28,37 +28,104 @@
       z-index: 10;
     }
 
-    /* ── Dialog box ── */
+    /* ── RPGMaker-style dialog window (anchored inside the game canvas) ── */
     #dialog {
       position: fixed;
-      bottom: 20px;
-      left: 50%;
-      transform: translateX(-50%);
-      width: min(700px, 90vw);
-      background: rgba(10,10,30,0.93);
-      border: 3px solid #6699cc;
-      border-radius: 8px;
-      padding: 16px 20px;
-      color: #eef;
-      font-family: 'Courier New', monospace;
-      font-size: 15px;
-      line-height: 1.6;
       display: none;
       z-index: 20;
+      font-family: 'Courier New', monospace;
+      color: #f2f4ff;
+      cursor: pointer;
+      -webkit-user-select: none;
+      user-select: none;
+      image-rendering: pixelated;
     }
-    #dialog .dialog-name {
-      color: #ffcc00;
+    #dialog.open { display: block; }
+
+    #dialog .dialog-window {
+      position: relative;
+      background: rgba(0,0,0,0.62);
+      border: 2px solid rgba(255,255,255,0.22);
+      border-radius: 6px;
+      box-shadow:
+        inset 0 0 0 1px rgba(255,255,255,0.08),
+        0 4px 18px rgba(0,0,0,0.45);
+      backdrop-filter: blur(2px);
+      padding: 18px 22px 20px;
+      min-height: 96px;
+    }
+
+    /* Name plate sits on top-left edge of the window, RPGMaker MZ style */
+    #dialog .dialog-nameplate {
+      position: absolute;
+      top: -18px;
+      left: 14px;
+      display: none;
+      padding: 4px 14px;
+      background: rgba(0,0,0,0.75);
+      border: 2px solid rgba(255,255,255,0.22);
+      border-radius: 5px;
+      box-shadow: inset 0 0 0 1px rgba(255,255,255,0.08);
       font-weight: bold;
-      margin-bottom: 6px;
       font-size: 13px;
+      letter-spacing: 2px;
       text-transform: uppercase;
-      letter-spacing: 1px;
+      text-shadow: 0 2px 0 rgba(0,0,0,0.75);
+      white-space: nowrap;
     }
-    #dialog .dialog-close {
-      text-align: right;
-      font-size: 11px;
-      color: #88aacc;
-      margin-top: 8px;
+    #dialog.has-name .dialog-nameplate { display: block; }
+
+    #dialog .dialog-text {
+      font-size: 17px;
+      line-height: 1.65;
+      text-shadow: 0 2px 0 rgba(0,0,0,0.7);
+      white-space: pre-wrap;
+      min-height: 3.3em;
+    }
+
+    /* Blinking "continue" arrow at the bottom of the window */
+    #dialog .dialog-arrow {
+      position: absolute;
+      right: 16px;
+      bottom: 8px;
+      width: 0;
+      height: 0;
+      border-left: 7px solid transparent;
+      border-right: 7px solid transparent;
+      border-top: 9px solid rgba(200,220,255,0.9);
+      opacity: 0;
+      animation: dialogArrow 0.9s steps(1, end) infinite;
+    }
+    #dialog.ready .dialog-arrow { opacity: 1; }
+
+    /* ── Choice list (Yes / No prompts) ── */
+    #dialog .dialog-choices {
+      display: none;
+      margin-top: 12px;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    #dialog.has-choices .dialog-choices { display: flex; }
+    #dialog.has-choices .dialog-arrow { display: none; }
+    #dialog .dialog-choice {
+      font-family: inherit;
+      font-size: inherit;
+      color: #f2f4ff;
+      background: rgba(0,0,0,0.55);
+      border: 2px solid rgba(255,255,255,0.22);
+      border-radius: 5px;
+      padding: 6px 20px;
+      letter-spacing: 1px;
+      cursor: pointer;
+      text-shadow: 0 2px 0 rgba(0,0,0,0.7);
+    }
+    #dialog .dialog-choice.selected {
+      border-color: rgba(200,220,255,0.95);
+      background: rgba(60,80,130,0.7);
+    }
+    @keyframes dialogArrow {
+      0%, 49%   { transform: translateY(0); }
+      50%, 100% { transform: translateY(4px); }
     }
 
     /* ── Mobile D-pad ── */
@@ -205,6 +272,32 @@
     }
 
     /* ── Save / Load controls ── */
+    #loading-screen {
+      position: fixed; inset: 0; z-index: 999;
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      gap: 14px; background: #07080d; color: #e8e8f0;
+      font-family: monospace; letter-spacing: 3px;
+      transition: opacity .35s ease;
+    }
+    #loading-screen.hidden { opacity: 0; pointer-events: none; }
+
+    #scene-fade {
+      position: fixed;
+      inset: 0;
+      background: #000;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 260ms ease;
+      z-index: 60;
+    }
+    #scene-fade.active { opacity: 1; }
+    #loading-title { font-size: 18px; }
+    #load-bar {
+      width: min(360px, 60vw); height: 12px;
+      border: 2px solid rgba(255,255,255,0.35); background: rgba(255,255,255,0.06);
+    }
+    #load-bar-fill { height: 100%; width: 0%; background: #7ab8ff; transition: width .2s ease; }
+    #load-pct { font-size: 13px; opacity: .8; }
     #scene-controls {
       position: fixed;
       left: 50%;
@@ -240,6 +333,41 @@
       font-family: 'Courier New', monospace;
     }
     #slots-overlay.open { display: flex; }
+
+    /* ── Computer screen view ── */
+    #computer-view {
+      position: fixed;
+      display: none;
+      z-index: 30;
+      background: #000;
+      overflow: hidden;
+      font-family: 'Courier New', monospace;
+    }
+    #computer-view.open { display: block; }
+    #computer-img {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+      image-rendering: pixelated;
+      display: block;
+    }
+    #computer-exit {
+      position: absolute;
+      left: 3%;
+      bottom: 4%;
+      background: rgba(0,0,0,0.62);
+      backdrop-filter: blur(2px);
+      border: 2px solid #6699cc;
+      border-radius: 6px;
+      color: #dbeaff;
+      font-family: inherit;
+      font-size: 15px;
+      font-weight: bold;
+      letter-spacing: 2px;
+      padding: 10px 24px;
+      cursor: pointer;
+    }
+    #computer-exit:hover { background: rgba(40,70,120,0.95); color: #fff; }
     #slots-panel {
       width: min(760px, 94vw);
       max-height: 90vh;
@@ -335,10 +463,17 @@
 
 <canvas id="canvas"></canvas>
 <div id="interact-hint">[E]</div>
+<div id="computer-view">
+  <img id="computer-img" src="assets/computer_screen.png" alt="Computer screen">
+  <button type="button" id="computer-exit">EXIT</button>
+</div>
 <div id="dialog">
-  <div class="dialog-name" id="dialog-name"></div>
-  <div id="dialog-text"></div>
-  <div class="dialog-close">[ E ] or [ Space ] to close</div>
+  <div class="dialog-window">
+    <div class="dialog-nameplate" id="dialog-name"></div>
+    <div class="dialog-text" id="dialog-text"></div>
+    <div class="dialog-choices" id="dialog-choices"></div>
+    <div class="dialog-arrow"></div>
+  </div>
 </div>
 
 <!-- Mobile D-pad -->
@@ -373,7 +508,7 @@
 </div>
 
 <div id="dev-tools">
-  <div id="dev-label">DEV MODE — Grid: 32×20 &nbsp;|&nbsp; <span id="cell-pos">C0R0</span></div>
+  <div id="dev-label">DEV MODE — <span id="scene-name">scene-1</span> &nbsp;|&nbsp; Grid: 32×20 &nbsp;|&nbsp; <span id="cell-pos">C0R0</span></div>
   <div id="cell-selector">
     <label for="select-cells">
       <input id="select-cells" type="checkbox">
@@ -387,25 +522,41 @@
   </div>
 </div>
 
+<div id="loading-screen">
+  <div id="loading-title">LOADING</div>
+  <div id="load-bar"><div id="load-bar-fill"></div></div>
+  <div id="load-pct">0%</div>
+</div>
+
+<div id="scene-fade"></div>
+
 <script>
 // ═══════════════════════════════════════════════════════════
 //  CONFIGURATION
 // ═══════════════════════════════════════════════════════════
-const ROOM_W   = 1485;
-const ROOM_H   = 1059;
+let ROOM_W   = 1485;
+let ROOM_H   = 1059;
+// Reference stage: every scene is rendered inside this box (scene-1's own
+// resolution), so a smaller/rectangular background is scaled DOWN to fit
+// rather than being blown up to fill the canvas.
+let STAGE_W  = 1254;
+let STAGE_H  = 1254;
+let ROOM_FIT = 1;      // how much the current room is shrunk inside the stage
+let stageLeft = 0, stageTop = 0, stageW = 0, stageH = 0;
 const COLS     = 32;
 const ROWS     = 20;
-const CELL_W   = ROOM_W / COLS;   // 185.625
-const CELL_H   = ROOM_H / ROWS;   // 211.8
+let CELL_W   = ROOM_W / COLS;
+let CELL_H   = ROOM_H / ROWS;
 
-// Player speed in room-pixels per second
-const PLAYER_SPEED = 280;
-
-// Character render height in room-pixels (roughly one cell tall)
-const CHAR_H   = 160;
+// Player speed / character height are kept proportional to the room so the
+// character looks the same size in every scene, whatever the image resolution.
+const SPEED_RATIO = 280 / 1059;
+const CHAR_RATIO  = 160 / 1059;
+let PLAYER_SPEED = SPEED_RATIO * ROOM_H;
+let CHAR_H       = CHAR_RATIO * ROOM_H;
 
 // Walk-bob amplitude and frequency
-const BOB_AMP  = 3;   // room-pixels
+let BOB_AMP  = 3;   // room-pixels
 const BOB_FREQ = 8;   // cycles per second (while moving)
 
 // ── Scenes ─────────────────────────────
@@ -418,41 +569,172 @@ const SCENES = {
 
     // Interact-cells: standing on any cell in `cells` shows the interact icon
     // at the `icon` cell. Press E to open that interaction's dialogue.
+    // `lines` is an array of pages: { speaker, text }. A page with no speaker
+    // continues the previous speaker (name plate stays visible).
     interacts: [
-      { cells: "C9R7C10R7",                      icon: "C10R4", name: "", text: "" },
-      { cells: "C22R7C23R7C24R7",                icon: "C23R3", name: "", text: "" },
-      { cells: "C6R10C6R11C6R12",                icon: "C4R10", name: "", text: "" },
-      { cells: "C13R16C14R16C15R16C16R16C17R16", icon: "C15R17", name: "", text: "" },
-      { cells: "C7R6C6R5",                       icon: "C7R3",  name: "", text: "" },
+      // Computer desk
+      {
+        cells: "C9R7C10R7",
+        icon: "C10R4",
+        lines: [
+          {
+            speaker: 'narrator',
+            text: "Would you like to use your computer?",
+            choices: [
+              { label: 'Yes', action: 'computer' },
+              { label: 'No' },
+            ],
+          },
+        ],
+      },
+      {
+        cells: "C22R7C23R7C24R7",
+        icon: "C23R3",
+        lines: [
+          { speaker: 'narrator', text: "Your closet is full of clothes, hanging there since the ancient ages" },
+          { speaker: 'narrator', text: "You do not feel like dressing fancy today" },
+        ],
+      },
+      {
+        cells: "C6R10C6R11C6R12",
+        icon: "C4R10",
+        lines: [
+          { speaker: 'narrator', text: "It's your TV, but you're way past the age of watching cartoons." },
+        ],
+        // Shown on every interaction after the first one.
+        repeatLines: [
+          { speaker: 'narrator', text: "You don't want to watch TV right now" },
+        ],
+      },
+      { cells: "C13R16C14R16C15R16C16R16C17R16", icon: "C15R17", lines: [] },
+      // Balcony doorway — asks before travelling
+      {
+        cells: "C13R15C14R15C15R15C16R15C17R15",
+        icon: "C15R13",
+        lines: [
+          {
+            speaker: 'narrator',
+            text: "Visit the balcony?",
+            choices: [
+              { label: 'Yes', goto: 'scene-1.5' },
+              { label: 'No' },
+            ],
+          },
+        ],
+      },
+      // Doorway → stairwell
+      { cells: "C17R4C18R4C19R4", icon: "C18R2", goto: 'scene-2' },
+      {
+        cells: "C6R5C7R6",
+        icon: "C7R3",
+        lines: [
+          { speaker: 'narrator', text: "Ah yes, your favorite flower pot" },
+          { speaker: 'narrator', text: "It is made of plastic though.. it's just for decoration" },
+        ],
+      },
     ],
   },
 
 };
 
-const CURRENT_SCENE = 'scene-1';
-const scene = SCENES[CURRENT_SCENE];
+SCENES['scene-2'] = {
+  background: 'assets/stairwell.png',
+  spawn: { col: 5, row: 15 },
+  walkable: "C3R15C4R15C5R15C6R15C7R15C8R15C9R15C10R15C11R15C12R15C13R15C14R15C15R15C16R15C17R15C18R15C19R15C20R15C21R15C22R15C23R15C24R15C25R15C26R15C27R15C28R15C3R16C4R16C5R16C6R16C7R16C8R16C9R16C10R16C11R16C12R16C13R16C14R16C15R16C16R16C17R16C18R16C19R16C20R16C21R16C22R16C23R16C24R16C25R16C26R16C27R16C28R16C3R17C4R17C5R17C6R17C7R17C8R17C9R17C10R17C11R17C12R17C13R17C14R17C15R17C16R17C17R17C18R17C19R17C20R17C21R17C22R17C23R17C24R17C25R17C26R17C27R17C28R17C3R18C4R18C5R18C6R18C7R18C8R18C9R18C10R18C11R18C12R18C13R18C14R18C15R18C16R18C17R18C18R18C19R18C20R18C21R18C22R18C23R18C24R18C25R18C26R18C27R18C28R18C1R16C2R16C1R17C2R17C1R18C2R18C29R16C30R16C29R17C30R17C29R18C30R18C12R14C13R14C14R14C15R14C16R14C17R14C18R14C19R14C20R14",
+  interacts: [
+    // Left door (203) — back down into the bedroom
+    { cells: "C4R15C5R15C6R15C7R15",      icon: "C5R13",  goto: 'scene-1', at: 'C18R4' },
+    { cells: "C24R15C25R15C26R15C27R15C28R15", icon: "C26R13", lines: [] },
+    { cells: "C12R14C13R14C14R14",        icon: "C13R12", lines: [] },
+    { cells: "C18R14C19R14C20R14",        icon: "C19R12", lines: [] },
+  ],
+};
+
+// ── Balcony ───────────────────────────────
+SCENES['scene-1.5'] = {
+  background: 'assets/balcony.png',
+  // Rendered at 60% of the stage-fitted size.
+  fitScale: 0.6,
+  spawn: { col: 15, row: 14 },
+  walkable: "C7R9C8R9C9R9C10R9C11R9C12R9C13R9C14R9C15R9C16R9C17R9C18R9C19R9C20R9C21R9C22R9C23R9C24R9C7R10C8R10C9R10C10R10C11R10C12R10C13R10C14R10C15R10C16R10C17R10C18R10C19R10C20R10C21R10C22R10C23R10C24R10C7R11C8R11C9R11C10R11C11R11C12R11C13R11C14R11C15R11C16R11C17R11C18R11C19R11C20R11C21R11C22R11C23R11C24R11C7R12C8R12C9R12C10R12C11R12C12R12C13R12C14R12C15R12C16R12C17R12C18R12C19R12C20R12C21R12C22R12C23R12C24R12C7R13C8R13C9R13C10R13C11R13C12R13C13R13C14R13C15R13C16R13C17R13C18R13C19R13C20R13C21R13C22R13C23R13C24R13C4R11C5R11C6R11C4R12C5R12C6R12C4R13C5R13C6R13C25R11C26R11C27R11C25R12C26R12C27R12C25R13C26R13C27R13C9R14C10R14C11R14C12R14C13R14C14R14C15R14C16R14C17R14C18R14C19R14C20R14C21R14C22R14",
+  interacts: [
+    // Jump off the balcony prompt
+    {
+      cells: "C12R9C13R9C14R9C15R9C16R9C17R9C18R9C19R9",
+      icon: "C15R7",
+      lines: [
+        {
+          speaker: 'narrator',
+          text: "Jump off the balcony?",
+          choices: [
+            { label: 'Yes' },
+            { label: 'No' },
+          ],
+        },
+      ],
+    },
+    // Step back inside
+    {
+      cells: "C12R14C13R14C14R14C15R14C16R14C17R14C18R14C19R14",
+      icon: "C15R12",
+      lines: [
+        {
+          speaker: 'narrator',
+          text: "Return to your room?",
+          choices: [
+            { label: 'Yes', goto: 'scene-1', at: 'C15R15' },
+            { label: 'No' },
+          ],
+        },
+      ],
+    },
+  ],
+};
+
+// ── Characters ─────────────────────────────
+// Each speaker gets a display name and a dialogue text colour.
+const CHARACTERS = {
+  narrator: { name: 'Narrator', dialogue_color: 'white', hide_name: true },
+  july:     { name: 'July',     dialogue_color: '#7ab8ff' },
+  june:     { name: 'June',     dialogue_color: '#ff9ec7' },
+};
+
+let CURRENT_SCENE = 'scene-1';
+let scene = SCENES[CURRENT_SCENE];
 
 function parseCells(input) {
   const set = new Set();
+  if (input === '*') {
+    for (let c = 0; c < 32; c++) for (let r = 0; r < 20; r++) set.add(`${c},${r}`);
+    return set;
+  }
   input.replace(/C(\d+)R(\d+)/g, (_, c, r) => set.add(`${c},${r}`));
   return set;
 }
 
 // Only these cells are walkable in the current scene; all others are blocked.
-const WALKABLE = parseCells(scene.walkable);
+let WALKABLE = parseCells(scene.walkable);
 
 // ── Interact-cells for the current scene ──────────────────
 // Each entry: trigger cells (Set) + the cell where the icon appears.
-const INTERACTS = (scene.interacts || []).map(def => {
+function buildInteracts(sc) {
+  return (sc.interacts || []).map(def => {
   const m = /C(\d+)R(\d+)/.exec(def.icon) || [];
   return {
     cells: parseCells(def.cells),
     iconCol: Number(m[1]),
     iconRow: Number(m[2]),
-    name: def.name || '',
-    text: def.text || '',
+    lines: (def.lines && def.lines.length)
+      ? def.lines
+      : (def.text ? [{ speaker: def.speaker || '', name: def.name || '', text: def.text }] : []),
+    repeatLines: def.repeatLines || null,
+    goto: def.goto || null,
+    at: def.at || null,
+    seen: false,
   };
-});
+  });
+}
+let INTERACTS = buildInteracts(scene);
 
 // The interaction whose trigger cell the player is currently standing on.
 let activeInteract = null;
@@ -486,26 +768,93 @@ let selectedCells = new Set();
 
 // Sprite images
 const sprites = {};
+const backgrounds = {};                       // scene name → preloaded Image
+const SCENE_NAMES = Object.keys(SCENES);
 let assetsLoaded = 0;
-const TOTAL_ASSETS = 6;
+const TOTAL_ASSETS = 6 + 1;  // sprites/icon/computer + the starting scene background only
 
 // ═══════════════════════════════════════════════════════════
 //  ASSET LOADING
 // ═══════════════════════════════════════════════════════════
 function loadImage(key, src) {
   const img = new Image();
-  img.onload  = () => { assetsLoaded++; if (assetsLoaded === TOTAL_ASSETS) startGame(); };
-  img.onerror = () => { assetsLoaded++; if (assetsLoaded === TOTAL_ASSETS) startGame(); };
+  const done = () => {
+    assetsLoaded++;
+    updateLoadProgress();
+    if (assetsLoaded === TOTAL_ASSETS) startGame();
+  };
+  img.onload  = done;
+  img.onerror = done;
   img.src = src;
   sprites[key] = img;
 }
 
-loadImage('room',  scene.background);
+function updateLoadProgress() {
+  const bar = document.getElementById('load-bar-fill');
+  const pct = document.getElementById('load-pct');
+  const value = Math.round((assetsLoaded / TOTAL_ASSETS) * 100);
+  if (bar) bar.style.width = value + '%';
+  if (pct) pct.textContent = value + '%';
+}
+
+// Room metrics follow the background image's own resolution, so the 32×20 grid
+// (and the character) stay proportional in every scene.
+function applyRoomMetrics(img) {
+  if (!img || !img.naturalWidth) return;
+  ROOM_W = img.naturalWidth;
+  ROOM_H = img.naturalHeight;
+  CELL_W = ROOM_W / COLS;
+  CELL_H = ROOM_H / ROWS;
+  ROOM_FIT = Math.min(STAGE_W / ROOM_W, STAGE_H / ROOM_H) * (scene.fitScale || 1);
+  // Keep on-screen speed / character size identical across scenes: room-space
+  // values are divided by how much the room itself is scaled down.
+  PLAYER_SPEED = (SPEED_RATIO * STAGE_H) / ROOM_FIT;
+  CHAR_H = (CHAR_RATIO * STAGE_H) / ROOM_FIT;
+  BOB_AMP = ((3 / 1059) * STAGE_H) / ROOM_FIT;
+  resize();
+}
+
+function placeAtSpawn() {
+  player.x = (scene.spawn.col + 0.5) * CELL_W;
+  player.y = (scene.spawn.row + 0.5) * CELL_H;
+}
+
+// Only the starting scene blocks the loading screen; neighbours stream in later.
+loadImage('bg:' + CURRENT_SCENE, SCENES[CURRENT_SCENE].background);
+backgrounds[CURRENT_SCENE] = sprites['bg:' + CURRENT_SCENE];
+sprites.room = backgrounds[CURRENT_SCENE];
+
+// Scenes reachable from a given scene (direct goto or via a dialogue choice).
+function neighborScenes(name) {
+  const out = new Set();
+  const walk = (node) => {
+    if (!node || typeof node !== 'object') return;
+    if (Array.isArray(node)) { node.forEach(walk); return; }
+    if (typeof node.goto === 'string' && SCENES[node.goto]) out.add(node.goto);
+    Object.values(node).forEach(walk);
+  };
+  walk((SCENES[name] || {}).interacts || []);
+  out.delete(name);
+  return [...out];
+}
+
+// Background (non-blocking) preload of the scenes reachable from `name`.
+function preloadNeighbors(name) {
+  neighborScenes(name).forEach(n => {
+    if (backgrounds[n]) return;
+    const img = new Image();
+    img.src = SCENES[n].background;
+    backgrounds[n] = img;
+    sprites['bg:' + n] = img;
+  });
+}
+
 loadImage('idle',  'sprites/idle.png');
 loadImage('left',  'sprites/left.png');
 loadImage('right', 'sprites/right.png');
 loadImage('up',    'sprites/up.png');
 loadImage('interact', 'icons/interact.png');
+loadImage('computer', 'assets/computer_screen.png');
 
 // ═══════════════════════════════════════════════════════════
 //  RESIZE
@@ -514,20 +863,27 @@ function resize() {
   canvas.width  = window.innerWidth;
   canvas.height = window.innerHeight;
 
-  const scaleX = canvas.width  / ROOM_W;
-  const scaleY = canvas.height / ROOM_H;
-  scale = Math.min(scaleX, scaleY);
+  // The stage (scene-1 sized box) is what fills the canvas.
+  const stageScale = Math.min(canvas.width / STAGE_W, canvas.height / STAGE_H);
+  stageW = STAGE_W * stageScale;
+  stageH = STAGE_H * stageScale;
+  stageLeft = (canvas.width  - stageW) / 2;
+  stageTop  = (canvas.height - stageH) / 2;
 
+  // The current room is fitted inside the stage, preserving its aspect ratio.
+  scale = stageScale * ROOM_FIT;
   offsetX = (canvas.width  - ROOM_W * scale) / 2;
   offsetY = (canvas.height - ROOM_H * scale) / 2;
 
   positionSceneControls();
+  positionComputer();
+  if (dialogOpen) positionDialog();
 }
 
 function positionSceneControls() {
   const controls = document.getElementById('scene-controls');
   if (!controls) return;
-  const roomBottom = offsetY + ROOM_H * scale;
+  const roomBottom = stageTop + stageH;
   const top = Math.min(roomBottom + 10, window.innerHeight - 52);
   controls.style.top = Math.max(8, top) + 'px';
 }
@@ -655,13 +1011,27 @@ canvas.addEventListener('pointercancel', finishCellSelection);
 // ═══════════════════════════════════════════════════════════
 window.addEventListener('keydown', e => {
   if (e.repeat) return;
+  if (menuOpen) return;
+  if (computerOpen) {
+    if (e.code === 'Escape' || e.code === 'KeyE' || e.code === 'Space') closeComputer();
+    return;
+  }
+  // While a choice prompt is open, arrows move the cursor instead of the player
+  if (dialogOpen && choiceOptions) {
+    switch (e.code) {
+      case 'ArrowLeft': case 'KeyA': case 'ArrowUp':   case 'KeyW': moveChoice(-1); return;
+      case 'ArrowRight': case 'KeyD': case 'ArrowDown': case 'KeyS': moveChoice(1); return;
+      case 'KeyE': case 'Space': case 'Enter': pickChoice(); return;
+    }
+    return;
+  }
   switch (e.code) {
     case 'ArrowUp':    case 'KeyW': keys.up    = true; break;
     case 'ArrowDown':  case 'KeyS': keys.down  = true; break;
     case 'ArrowLeft':  case 'KeyA': keys.left  = true; break;
     case 'ArrowRight': case 'KeyD': keys.right = true; break;
     case 'KeyE': case 'Space':
-      if (dialogOpen) closeDialog();
+      if (dialogOpen) advanceDialog();
       else tryInteract();
       break;
   }
@@ -702,7 +1072,7 @@ function setupDpad() {
   });
 
   const btnE = document.getElementById('btn-e');
-  btnE.addEventListener('touchstart', e => { e.preventDefault(); if (dialogOpen) closeDialog(); else tryInteract(); }, { passive: false });
+  btnE.addEventListener('touchstart', e => { e.preventDefault(); if (dialogOpen) advanceDialog(); else tryInteract(); }, { passive: false });
 }
 
 // ═══════════════════════════════════════════════════════════
@@ -716,20 +1086,275 @@ function getPlayerCell() {
 
 function tryInteract() {
   const { col, row } = getPlayerCell();
-  if (activeInteract) openDialog(activeInteract);
+  if (!activeInteract) return;
+  if (activeInteract.goto) { changeScene(activeInteract.goto, activeInteract.at); return; }
+  openDialog(activeInteract);
+}
+
+// ── Scene switching ───────────────────────────────────────
+let sceneTransitioning = false;
+const fadeEl = document.getElementById('scene-fade');
+
+function parseCell(str) {
+  const m = /C(\d+)R(\d+)/.exec(String(str || ''));
+  return m ? { col: +m[1], row: +m[2] } : null;
+}
+
+function changeScene(name, at) {
+  if (sceneTransitioning) return;
+  if (!SCENES[name]) return;
+  sceneTransitioning = true;
+  closeDialog();
+  keys.up = keys.down = keys.left = keys.right = false;
+  if (fadeEl) fadeEl.classList.add('active');
+  setTimeout(() => {
+    applyScene(name, at);
+    if (fadeEl) fadeEl.classList.remove('active');
+    setTimeout(() => { sceneTransitioning = false; }, 260);
+  }, 270);
+}
+
+function applyScene(name, at) {
+  const next = SCENES[name];
+  if (!next) return;
+  closeDialog();
+  CURRENT_SCENE = name;
+  scene = next;
+  WALKABLE = parseCells(scene.walkable);
+  INTERACTS = buildInteracts(scene);
+  activeInteract = null;
+  player.dir = 'idle';
+  player.moving = false;
+  player.bobTime = 0;
+  keys.up = keys.down = keys.left = keys.right = false;
+  if (!backgrounds[name]) {
+    const img = new Image();
+    img.src = scene.background;
+    backgrounds[name] = img;
+  }
+  sprites.room = backgrounds[name];
+  applyRoomMetrics(sprites.room);
+  preloadNeighbors(name);
+  const cell = parseCell(at) || scene.spawn;
+  player.x = (cell.col + 0.5) * CELL_W;
+  player.y = (cell.row + 0.5) * CELL_H;
+  updateDevLabel();
+}
+
+// ── RPGMaker-style dialogue window ────────────────────────
+const dialogEl     = document.getElementById('dialog');
+const dialogNameEl = document.getElementById('dialog-name');
+const dialogTextEl = document.getElementById('dialog-text');
+
+const TYPE_SPEED = 28; // characters per second-ish (ms per char below)
+const MS_PER_CHAR = 1000 / TYPE_SPEED * 0.55;
+
+let dialogQueue = [];
+let dialogIndex = 0;
+let dialogTyping = false;
+let typeTimer = null;
+let currentSpeaker = null;
+
+function positionDialog() {
+  // Anchor the window inside the stage (same box in every scene) so it reads
+  // as part of the game canvas, like an RPGMaker message window.
+  const roomLeft   = stageLeft;
+  const roomTop    = stageTop;
+  const roomWidth  = stageW;
+  const roomHeight = stageH;
+  const margin     = Math.max(10, roomWidth * 0.025);
+
+  dialogEl.style.left   = (roomLeft + margin) + 'px';
+  dialogEl.style.width  = (roomWidth - margin * 2) + 'px';
+  dialogEl.style.top    = (roomTop + roomHeight - margin - Math.max(110, roomHeight * 0.24)) + 'px';
+
+  // Scale typography with the room so it never dwarfs the scene.
+  const fs = Math.max(13, Math.min(22, roomWidth * 0.016));
+  dialogTextEl.style.fontSize = fs + 'px';
+  dialogNameEl.style.fontSize = Math.max(11, fs * 0.78) + 'px';
+}
+
+function renderSpeaker(key) {
+  const char = CHARACTERS[key];
+  if (char && !char.hide_name) {
+    dialogEl.classList.add('has-name');
+    dialogNameEl.textContent = char.name;
+    dialogNameEl.style.color = char.dialogue_color;
+    dialogTextEl.style.color = char.dialogue_color;
+  } else {
+    dialogEl.classList.remove('has-name');
+    dialogNameEl.textContent = '';
+    dialogTextEl.style.color = (char && char.dialogue_color) || '#f2f4ff';
+  }
+}
+
+function typeLine(text, onDone) {
+  clearTimeout(typeTimer);
+  dialogTyping = true;
+  dialogEl.classList.remove('ready');
+  dialogTextEl.textContent = '';
+  let i = 0;
+  const step = () => {
+    if (i >= text.length) {
+      dialogTyping = false;
+      dialogEl.classList.add('ready');
+      if (onDone) onDone();
+      return;
+    }
+    dialogTextEl.textContent += text[i++];
+    typeTimer = setTimeout(step, MS_PER_CHAR);
+  };
+  step();
+}
+
+// ── Choice prompts (Yes / No) ─────────────────────────────
+const dialogChoicesEl = document.getElementById('dialog-choices');
+let choiceOptions = null;
+let choiceIndex = 0;
+
+function showChoices(options) {
+  choiceOptions = options;
+  choiceIndex = 0;
+  dialogChoicesEl.innerHTML = '';
+  options.forEach((opt, i) => {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'dialog-choice' + (i === 0 ? ' selected' : '');
+    btn.textContent = opt.label;
+    btn.addEventListener('pointerdown', e => {
+      e.preventDefault();
+      e.stopPropagation();
+      choiceIndex = i;
+      pickChoice();
+    });
+    dialogChoicesEl.appendChild(btn);
+  });
+  dialogEl.classList.add('has-choices');
+  highlightChoice();
+}
+
+function highlightChoice() {
+  Array.from(dialogChoicesEl.children).forEach((el, i) => {
+    el.classList.toggle('selected', i === choiceIndex);
+  });
+}
+
+function moveChoice(delta) {
+  if (!choiceOptions) return;
+  choiceIndex = (choiceIndex + delta + choiceOptions.length) % choiceOptions.length;
+  highlightChoice();
+}
+
+function pickChoice() {
+  if (!choiceOptions) return;
+  const opt = choiceOptions[choiceIndex];
+  clearChoices();
+  closeDialog();
+  if (opt && opt.action === 'computer') openComputer();
+  else if (opt && opt.goto) changeScene(opt.goto, opt.at);
+  else if (opt && opt.lines && opt.lines.length) openDialog({ lines: opt.lines });
+}
+
+// ── Computer screen view ──────────────────────────────────
+var computerViewEl = document.getElementById('computer-view');
+var computerExitEl = document.getElementById('computer-exit');
+var computerOpen = false;
+
+function positionComputer() {
+  var computerViewEl = document.getElementById('computer-view');
+  if (!computerViewEl) return;
+  computerViewEl.style.left   = stageLeft + 'px';
+  computerViewEl.style.top    = stageTop + 'px';
+  computerViewEl.style.width  = stageW + 'px';
+  computerViewEl.style.height = stageH + 'px';
+}
+
+function openComputer() {
+  closeDialog();
+  keys.up = keys.down = keys.left = keys.right = false;
+  player.dir = 'idle';
+  player.moving = false;
+  computerOpen = true;
+  positionComputer();
+  computerViewEl.classList.add('open');
+}
+
+function closeComputer() {
+  computerOpen = false;
+  computerViewEl.classList.remove('open');
+}
+
+if (computerExitEl) {
+  computerExitEl.addEventListener('pointerdown', e => {
+    e.preventDefault();
+    e.stopPropagation();
+    closeComputer();
+  });
+}
+
+function clearChoices() {
+  choiceOptions = null;
+  choiceIndex = 0;
+  dialogChoicesEl.innerHTML = '';
+  dialogEl.classList.remove('has-choices');
+}
+
+function showDialogPage(index) {
+  const page = dialogQueue[index];
+  if (!page) { closeDialog(); return; }
+  if (page.speaker) currentSpeaker = page.speaker;
+  renderSpeaker(currentSpeaker);
+  positionDialog();
+  clearChoices();
+  typeLine(page.text || '', () => {
+    if (page.choices && page.choices.length) showChoices(page.choices);
+  });
 }
 
 function openDialog(data) {
+  if (!data) return;
+  const useRepeat = data.seen && data.repeatLines && data.repeatLines.length;
+  const lines = useRepeat ? data.repeatLines : (data.lines || []);
+  if (!lines.length) return;
+  data.seen = true;
+  dialogQueue = lines;
+  dialogIndex = 0;
+  currentSpeaker = null;
   dialogOpen = true;
-  document.getElementById('dialog-name').textContent = data.name || '';
-  document.getElementById('dialog-text').textContent = data.text || '';
-  document.getElementById('dialog').style.display = 'block';
+  dialogEl.classList.add('open');
+  showDialogPage(0);
+}
+
+// E / Space / click: finish typing, then advance, then close.
+function advanceDialog() {
+  if (!dialogOpen) return;
+  const page = dialogQueue[dialogIndex];
+  if (dialogTyping) {
+    clearTimeout(typeTimer);
+    dialogTyping = false;
+    dialogTextEl.textContent = (page && page.text) || '';
+    dialogEl.classList.add('ready');
+    if (page && page.choices && page.choices.length) showChoices(page.choices);
+    return;
+  }
+  if (choiceOptions) { pickChoice(); return; }
+  dialogIndex++;
+  if (dialogIndex >= dialogQueue.length) closeDialog();
+  else showDialogPage(dialogIndex);
 }
 
 function closeDialog() {
+  clearTimeout(typeTimer);
+  dialogTyping = false;
   dialogOpen = false;
-  document.getElementById('dialog').style.display = 'none';
+  dialogQueue = [];
+  dialogIndex = 0;
+  currentSpeaker = null;
+  clearChoices();
+  dialogEl.classList.remove('open', 'ready', 'has-name');
 }
+
+dialogEl.addEventListener('pointerdown', e => { e.preventDefault(); advanceDialog(); });
 
 // ═══════════════════════════════════════════════════════════
 //  UPDATE
@@ -786,11 +1411,17 @@ function update(dt) {
   updateInteractHint();
 }
 
+function updateDevLabel() {
+  const { col, row } = getPlayerCell();
+  document.getElementById('scene-name').textContent = CURRENT_SCENE;
+  document.getElementById('cell-pos').textContent = `C${col}R${row}`;
+}
+
 function updateInteractHint() {
   const { col, row } = getPlayerCell();
 
-  // Update cell position display
-  document.getElementById('cell-pos').textContent = `C${col}R${row}`;
+  // Update dev label with current scene and cell position
+  updateDevLabel();
 
   activeInteract = INTERACTS.find(it => it.cells.has(`${col},${row}`)) || null;
 
@@ -819,8 +1450,9 @@ function draw() {
   ctx.translate(offsetX, offsetY);
   ctx.scale(scale, scale);
 
-  // ── Background room ──
-  if (sprites.room.complete && sprites.room.naturalWidth > 0) {
+  // ── Background room ── room space matches the image's own resolution
+  ctx.imageSmoothingEnabled = false;
+  if (sprites.room && sprites.room.complete && sprites.room.naturalWidth > 0) {
     ctx.drawImage(sprites.room, 0, 0, ROOM_W, ROOM_H);
   } else {
     ctx.fillStyle = '#1a1a2e';
@@ -908,6 +1540,7 @@ function drawGrid() {
 }
 
 function drawPlayer() {
+  if (computerOpen) return;
   const sprKey = player.dir;
   const img = sprites[sprKey];
   if (!img || !img.complete || img.naturalWidth === 0) return;
@@ -1153,7 +1786,14 @@ function loop(timestamp) {
 }
 
 function startGame() {
+  const base = backgrounds[CURRENT_SCENE];
+  if (base && base.naturalWidth) { STAGE_W = base.naturalWidth; STAGE_H = base.naturalHeight; }
+  applyRoomMetrics(sprites.room);
+  placeAtSpawn();
+  const overlay = document.getElementById('loading-screen');
+  if (overlay) overlay.classList.add('hidden');
   setupDpad();
+  preloadNeighbors(CURRENT_SCENE);
   lastTime = performance.now();
   requestAnimationFrame(loop);
 }
