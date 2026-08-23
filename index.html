@@ -3,7 +3,10 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-  <title>RPG Game</title>
+  <title>Quest — Pixel RPG Adventure</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Chewy&display=swap" rel="stylesheet">
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     html, body { width: 100%; height: 100%; background: #111; overflow: hidden; }
@@ -42,6 +45,24 @@
     }
     #dialog.open { display: block; }
 
+    /* Character portraits flanking the dialogue window */
+    #dialog .dialog-portrait {
+      position: absolute;
+      bottom: 100%;
+      margin-bottom: -6px;
+      height: 260px;
+      max-height: 42vh;
+      image-rendering: pixelated;
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity .18s ease, filter .18s ease, transform .18s ease;
+    }
+    #dialog .dialog-portrait.show { opacity: 1; }
+    #dialog .dialog-portrait.dim { opacity: .75; filter: brightness(.55); transform: scale(.94); }
+    #dialog .dialog-portrait.left  { left: 2%; transform-origin: bottom left; }
+    #dialog .dialog-portrait.right { right: 2%; transform-origin: bottom right; }
+
+
     #dialog .dialog-window {
       position: relative;
       background: rgba(0,0,0,0.62);
@@ -76,8 +97,10 @@
     #dialog.has-name .dialog-nameplate { display: block; }
 
     #dialog .dialog-text {
-      font-size: 17px;
+      font-family: 'Chewy', 'Arial Black', sans-serif;
+      font-size: 30px;
       line-height: 1.65;
+      word-spacing: 0.15em;
       text-shadow: 0 2px 0 rgba(0,0,0,0.7);
       white-space: pre-wrap;
       min-height: 3.3em;
@@ -276,7 +299,7 @@
       position: fixed; inset: 0; z-index: 999;
       display: flex; flex-direction: column; align-items: center; justify-content: center;
       gap: 14px; background: #07080d; color: #e8e8f0;
-      font-family: monospace; letter-spacing: 3px;
+      font-family: 'Chewy', cursive; letter-spacing: 3px;
       transition: opacity .35s ease;
     }
     #loading-screen.hidden { opacity: 0; pointer-events: none; }
@@ -296,7 +319,7 @@
       width: min(360px, 60vw); height: 12px;
       border: 2px solid rgba(255,255,255,0.35); background: rgba(255,255,255,0.06);
     }
-    #load-bar-fill { height: 100%; width: 0%; background: #7ab8ff; transition: width .2s ease; }
+    #load-bar-fill { height: 100%; width: 0%; background: #fff; transition: width .2s ease; }
     #load-pct { font-size: 13px; opacity: .8; }
     #scene-controls {
       position: fixed;
@@ -329,7 +352,7 @@
       display: none;
       align-items: center;
       justify-content: center;
-      z-index: 40;
+      z-index: 70;
       font-family: 'Courier New', monospace;
     }
     #slots-overlay.open { display: flex; }
@@ -372,8 +395,8 @@
       width: min(760px, 94vw);
       max-height: 90vh;
       overflow-y: auto;
-      background: rgba(10,10,30,0.97);
-      border: 3px solid #6699cc;
+      background: #000;
+      border: 3px solid #ffcc00;
       border-radius: 10px;
       padding: 18px;
       color: #eef;
@@ -411,8 +434,8 @@
       gap: 6px;
       cursor: pointer;
     }
-    .slot:hover { border-color: #66ccff; background: rgba(102,204,255,0.10); }
-    .slot.filled { border-style: solid; border-color: rgba(153,229,255,0.6); }
+    .slot:hover { border-color: #ffcc00; background: rgba(255,204,0,0.10); }
+    .slot.filled { border-style: solid; border-color: rgba(255,204,0,0.8); }
     .slot.disabled { opacity: 0.4; cursor: not-allowed; }
     .slot-index { font-size: 10px; color: rgba(255,255,255,0.5); letter-spacing: 1px; }
     .slot-name { font-size: 14px; font-weight: bold; color: #ffcc00; }
@@ -423,13 +446,13 @@
       background: rgba(255,255,255,0.08);
       border: 1px solid rgba(255,255,255,0.25);
       border-radius: 4px;
-      color: #dbeaff;
+      color: #ffcc00;
       cursor: pointer;
       font-family: inherit;
       font-size: 10px;
       padding: 2px 7px;
     }
-    .slot-action:hover { background: rgba(255,255,255,0.2); }
+    .slot-action:hover { background: rgba(255,204,0,0.2); }
     #slots-pager {
       display: flex;
       align-items: center;
@@ -437,7 +460,7 @@
       gap: 14px;
       margin-top: 14px;
       font-size: 12px;
-      color: rgba(220,235,255,0.85);
+      color: rgba(255,204,0,0.85);
     }
     .pager-btn {
       background: rgba(255,255,255,0.08);
@@ -453,10 +476,120 @@
       margin-top: 10px;
       text-align: center;
       font-size: 12px;
-      color: #9de5ff;
+      color: #ffcc00;
       min-height: 16px;
     }
 
+    /* ── In-game save name prompt ── */
+    #save-name-overlay {
+      position: fixed; inset: 0; background: rgba(0,0,0,0.78);
+      display: none; align-items: center; justify-content: center;
+      z-index: 80; font-family: 'Chewy', cursive;
+    }
+    #save-name-overlay.open { display: flex; }
+    #save-name-panel {
+      width: min(420px, 90vw);
+      background: #000;
+      border: 3px solid #ffcc00;
+      border-radius: 10px;
+      padding: 22px;
+      display: flex; flex-direction: column; gap: 16px;
+      color: #eef;
+    }
+    #save-name-title { font-size: 24px; color: #ffcc00; text-align: center; letter-spacing: 2px; }
+    #save-name-input {
+      font-family: 'Chewy', cursive;
+      font-size: 20px;
+      background: rgba(0,0,0,0.55);
+      border: 2px solid rgba(255,255,255,0.3);
+      border-radius: 6px;
+      color: #fff;
+      padding: 10px 14px;
+      outline: none;
+    }
+    #save-name-input:focus { border-color: #ffcc00; }
+    #save-name-actions { display: flex; gap: 12px; justify-content: center; }
+    .save-name-btn {
+      font-family: 'Chewy', cursive;
+      font-size: 18px;
+      background: rgba(255,255,255,0.1);
+      border: 2px solid rgba(255,255,255,0.35);
+      border-radius: 6px;
+      color: #ffcc00;
+      padding: 8px 22px;
+      cursor: pointer;
+    }
+    .save-name-btn:hover { background: rgba(255,204,0,0.25); }
+    .save-name-btn.primary { border-color: #ffcc00; background: rgba(255,204,0,0.18); }
+    .save-name-btn.primary:hover { background: rgba(255,204,0,0.35); }
+
+
+    /* ── MAIN MENU ── */
+    #main-menu {
+      position: fixed; inset: 0; z-index: 60; display: none;
+      background: #05060a center/cover no-repeat url('icons/game_main.jpg');
+      image-rendering: pixelated;
+    }
+    #main-menu.open { display: block; }
+    #main-menu::after {
+      content: ''; position: absolute; inset: 0; pointer-events: none;
+      background: linear-gradient(90deg, rgba(5,6,10,0) 35%, rgba(5,6,10,.75) 100%);
+    }
+    #menu-panel {
+      position: absolute; top: 50%; left: calc(50% + 30px); transform: translateY(-50%);
+      z-index: 2; display: flex; flex-direction: column; gap: 18px;
+      width: min(520px, 62vw);
+    }
+    .menu-btn {
+      font-family: 'Chewy', 'Arial Black', sans-serif;
+      font-size: 28px;
+      font-weight: 700;
+      letter-spacing: 2px;
+      cursor: pointer;
+      padding: 8px 0;
+      text-align: left;
+      color: #888;
+      background: none;
+      border: 0;
+      box-shadow: none;
+      text-shadow: 2px 2px 0 #000;
+      transform-origin: left center;
+      position: relative;
+      align-self: flex-start;
+      width: auto;
+      padding-left: 48px;
+    }
+    .menu-btn::before {
+      content: '>';
+      position: absolute;
+      left: 0;
+      color: #fff;
+      opacity: 0;
+      margin-right: 0;
+    }
+    .menu-btn.selected {
+      color: #fff;
+      font-size: 34px;
+      animation: menu-flicker .9s steps(1,end) infinite;
+    }
+    .menu-btn.selected::before { opacity: 1; }
+    .menu-btn:disabled { opacity: .35; cursor: not-allowed; }
+    .menu-btn:disabled.selected { color: #888; }
+    @keyframes menu-flicker {
+      0%, 100% { opacity: 1; }
+      45% { opacity: 1; }
+      50% { opacity: .45; }
+      60% { opacity: 1; }
+      70% { opacity: .6; }
+      78% { opacity: 1; }
+    }
+    #settings-panel { display: none; flex-direction: column; gap: 12px; }
+    #settings-panel.open { display: flex; }
+    #menu-main.hidden { display: none; }
+    .set-row {
+      display: flex; align-items: center; justify-content: flex-start; gap: 16px; align-self: flex-start;
+      font-size: 20px; color: #888; text-shadow: 2px 2px 0 #000; padding: 8px 0;
+    }
   </style>
 </head>
 <body>
@@ -468,6 +601,8 @@
   <button type="button" id="computer-exit">EXIT</button>
 </div>
 <div id="dialog">
+  <img class="dialog-portrait left"  id="portrait-left"  alt="">
+  <img class="dialog-portrait right" id="portrait-right" alt="">
   <div class="dialog-window">
     <div class="dialog-nameplate" id="dialog-name"></div>
     <div class="dialog-text" id="dialog-text"></div>
@@ -491,6 +626,24 @@
   <button class="scene-btn" id="btn-load" type="button">LOAD</button>
 </div>
 
+
+<div id="main-menu">
+  <div id="menu-panel">
+    
+    <div id="menu-main" style="display:flex;flex-direction:column;gap:14px">
+      <button class="menu-btn" id="menu-new" type="button">NEW GAME</button>
+      <button class="menu-btn" id="menu-continue" type="button">CONTINUE</button>
+      <button class="menu-btn" id="menu-load" type="button">LOAD</button>
+      <button class="menu-btn" id="menu-settings" type="button">SETTINGS</button>
+    </div>
+    <div id="settings-panel">
+      <label class="set-row"><span>TOUCH CONTROLS</span><input id="set-touch" type="checkbox"></label>
+      <label class="set-row"><span>SHOW [E] HINT</span><input id="set-hint" type="checkbox" checked></label>
+      <button class="menu-btn" id="menu-back" type="button">BACK</button>
+    </div>
+  </div>
+</div>
+
 <div id="slots-overlay">
   <div id="slots-panel">
     <div id="slots-header">
@@ -507,16 +660,29 @@
   </div>
 </div>
 
+<div id="save-name-overlay">
+  <div id="save-name-panel">
+    <div id="save-name-title">NAME THIS SAVE</div>
+    <input id="save-name-input" type="text" placeholder="Save name (optional)" maxlength="32">
+    <div id="save-name-actions">
+      <button class="save-name-btn primary" id="save-name-confirm" type="button">CONFIRM</button>
+      <button class="save-name-btn" id="save-name-cancel" type="button">CANCEL</button>
+    </div>
+  </div>
+</div>
+
+<script>var DEV_MODE = new URLSearchParams(location.search).has("dev");
+window.addEventListener("DOMContentLoaded",function(){if(DEV_MODE){["cell-selector","grid-outputs"].forEach(function(id){var e=document.getElementById(id);if(e)e.style.display="";});}});</script>
 <div id="dev-tools">
   <div id="dev-label">DEV MODE — <span id="scene-name">scene-1</span> &nbsp;|&nbsp; Grid: 32×20 &nbsp;|&nbsp; <span id="cell-pos">C0R0</span></div>
-  <div id="cell-selector">
+  <div id="cell-selector" style="display:none">
     <label for="select-cells">
       <input id="select-cells" type="checkbox">
       Select Cells
     </label>
     <div id="cell-selector-help">Hold and drag across the room grid.</div>
   </div>
-  <div id="grid-outputs">
+  <div id="grid-outputs" style="display:none">
     <div id="grid-outputs-title">Grid Outputs <span id="grid-output-count">(0)</span></div>
     <div id="grid-outputs-list"><span id="grid-outputs-empty">No cells selected</span></div>
   </div>
@@ -641,12 +807,27 @@ SCENES['scene-2'] = {
   background: 'assets/stairwell.png',
   spawn: { col: 5, row: 15 },
   walkable: "C3R15C4R15C5R15C6R15C7R15C8R15C9R15C10R15C11R15C12R15C13R15C14R15C15R15C16R15C17R15C18R15C19R15C20R15C21R15C22R15C23R15C24R15C25R15C26R15C27R15C28R15C3R16C4R16C5R16C6R16C7R16C8R16C9R16C10R16C11R16C12R16C13R16C14R16C15R16C16R16C17R16C18R16C19R16C20R16C21R16C22R16C23R16C24R16C25R16C26R16C27R16C28R16C3R17C4R17C5R17C6R17C7R17C8R17C9R17C10R17C11R17C12R17C13R17C14R17C15R17C16R17C17R17C18R17C19R17C20R17C21R17C22R17C23R17C24R17C25R17C26R17C27R17C28R17C3R18C4R18C5R18C6R18C7R18C8R18C9R18C10R18C11R18C12R18C13R18C14R18C15R18C16R18C17R18C18R18C19R18C20R18C21R18C22R18C23R18C24R18C25R18C26R18C27R18C28R18C1R16C2R16C1R17C2R17C1R18C2R18C29R16C30R16C29R17C30R17C29R18C30R18C12R14C13R14C14R14C15R14C16R14C17R14C18R14C19R14C20R14",
+  // Static characters/objects drawn in the scene at a given cell.
+  props: [
+    { sprite: 'june_idle', cell: 'C10R15', scale: 0.9325 },
+  ],
   interacts: [
     // Left door (203) — back down into the bedroom
     { cells: "C4R15C5R15C6R15C7R15",      icon: "C5R13",  goto: 'scene-1', at: 'C18R4' },
     { cells: "C24R15C25R15C26R15C27R15C28R15", icon: "C26R13", lines: [] },
     { cells: "C12R14C13R14C14R14",        icon: "C13R12", lines: [] },
     { cells: "C18R14C19R14C20R14",        icon: "C19R12", lines: [] },
+    // June, waiting on the landing
+    {
+      cells: "C8R15C9R15C10R15C11R15C8R16C9R16C10R16C11R16",
+      icon: "C10R13",
+      lines: [
+        { speaker: 'june', sprite: 'june_idle-a', text: "You finally stepped out of the house." },
+        { speaker: 'june', sprite: 'june_idle-b', text: "What took you so long?" },
+        { speaker: 'july', sprite: 'july_idle',   text: "It's your fault to begin with." },
+        { speaker: 'june', sprite: 'june_upset',  text: "Yeah, yeah.. surely it's because I" },
+      ],
+    },
   ],
 };
 
@@ -715,6 +896,16 @@ function parseCells(input) {
 // Only these cells are walkable in the current scene; all others are blocked.
 let WALKABLE = parseCells(scene.walkable);
 
+// Cells occupied by scene characters/props — the player cannot stand on them.
+function parseOccupied(sc) {
+  const set = new Set();
+  (sc.props || []).forEach(p => {
+    if (p.cell) parseCells(p.cell).forEach(k => set.add(k));
+  });
+  return set;
+}
+let OCCUPIED = parseOccupied(scene);
+
 // ── Interact-cells for the current scene ──────────────────
 // Each entry: trigger cells (Set) + the cell where the icon appears.
 function buildInteracts(sc) {
@@ -771,7 +962,7 @@ const sprites = {};
 const backgrounds = {};                       // scene name → preloaded Image
 const SCENE_NAMES = Object.keys(SCENES);
 let assetsLoaded = 0;
-const TOTAL_ASSETS = 6 + 1;  // sprites/icon/computer + the starting scene background only
+const TOTAL_ASSETS = 6 + 1 + 1;  // sprites/icon/computer + the starting scene background only
 
 // ═══════════════════════════════════════════════════════════
 //  ASSET LOADING
@@ -855,6 +1046,18 @@ loadImage('right', 'sprites/right.png');
 loadImage('up',    'sprites/up.png');
 loadImage('interact', 'icons/interact.png');
 loadImage('computer', 'assets/computer_screen.png');
+loadImage('menuBg', 'icons/game_main.jpg');
+
+// Character sprites used for scene props and dialogue portraits (non-blocking).
+const CHAR_SPRITES = [
+  'june_idle', 'june_idle-a', 'june_idle-b', 'june_upset', 'june_smile', 'june_smug', 'june_anxious',
+  'july_idle', 'july_smile', 'july_angry',
+];
+CHAR_SPRITES.forEach(name => {
+  const img = new Image();
+  img.src = 'sprites/' + name + '.png';
+  sprites[name] = img;
+});
 
 // ═══════════════════════════════════════════════════════════
 //  RESIZE
@@ -917,7 +1120,7 @@ function cellFromRoomPoint(point) {
 }
 
 function isCellWalkable(col, row) {
-  return WALKABLE.has(`${col},${row}`);
+  return WALKABLE.has(`${col},${row}`) && !OCCUPIED.has(`${col},${row}`);
 }
 
 function isWalkableAt(x, y) {
@@ -1009,9 +1212,15 @@ canvas.addEventListener('pointercancel', finishCellSelection);
 // ═══════════════════════════════════════════════════════════
 //  INPUT — KEYBOARD
 // ═══════════════════════════════════════════════════════════
+function isMenuOpen() {
+  const ov = document.getElementById('slots-overlay');
+  const mm = document.getElementById('main-menu');
+  const sn = document.getElementById('save-name-overlay');
+  return !!((ov && ov.classList.contains('open')) || (mm && mm.classList.contains('open')) || (sn && sn.classList.contains('open')));
+}
 window.addEventListener('keydown', e => {
   if (e.repeat) return;
-  if (menuOpen) return;
+  if (isMenuOpen()) return;
   if (computerOpen) {
     if (e.code === 'Escape' || e.code === 'KeyE' || e.code === 'Space') closeComputer();
     return;
@@ -1084,12 +1293,25 @@ function getPlayerCell() {
   return { col: Math.max(0, Math.min(COLS-1, col)), row: Math.max(0, Math.min(ROWS-1, row)) };
 }
 
+let autoWalk = null;
+
 function tryInteract() {
   const { col, row } = getPlayerCell();
   if (!activeInteract) return;
+  if (autoWalk) return;
   if (activeInteract.goto) { changeScene(activeInteract.goto, activeInteract.at); return; }
+  // Walk the player down to the bottom of their cell so they line up
+  // with NPC sprites (which are anchored at their cell's base).
+  const targetY = (row + 1) * CELL_H;
+  if (Math.abs(targetY - player.y) > 1) {
+    keys.up = keys.down = keys.left = keys.right = false;
+    autoWalk = { y: targetY, interact: activeInteract };
+    return;
+  }
   openDialog(activeInteract);
 }
+
+
 
 // ── Scene switching ───────────────────────────────────────
 let sceneTransitioning = false;
@@ -1121,8 +1343,10 @@ function applyScene(name, at) {
   CURRENT_SCENE = name;
   scene = next;
   WALKABLE = parseCells(scene.walkable);
+  OCCUPIED = parseOccupied(scene);
   INTERACTS = buildInteracts(scene);
   activeInteract = null;
+  autoWalk = null;
   player.dir = 'idle';
   player.moving = false;
   player.bobTime = 0;
@@ -1169,7 +1393,7 @@ function positionDialog() {
   dialogEl.style.top    = (roomTop + roomHeight - margin - Math.max(110, roomHeight * 0.24)) + 'px';
 
   // Scale typography with the room so it never dwarfs the scene.
-  const fs = Math.max(13, Math.min(22, roomWidth * 0.016));
+  const fs = Math.max(13, Math.min(30, roomWidth * 0.016));
   dialogTextEl.style.fontSize = fs + 'px';
   dialogNameEl.style.fontSize = Math.max(11, fs * 0.78) + 'px';
 }
@@ -1186,6 +1410,43 @@ function renderSpeaker(key) {
     dialogNameEl.textContent = '';
     dialogTextEl.style.color = (char && char.dialogue_color) || '#f2f4ff';
   }
+}
+
+// ── Dialogue portraits: July on the left, June on the right ──
+const PORTRAIT_SIDE = { july: 'left', june: 'right' };
+const portraitEls = {
+  left:  document.getElementById('portrait-left'),
+  right: document.getElementById('portrait-right'),
+};
+let portraitState = { left: null, right: null };
+
+function resetPortraits() {
+  portraitState = { left: null, right: null };
+  Object.values(portraitEls).forEach(el => {
+    if (!el) return;
+    el.classList.remove('show', 'dim');
+    el.removeAttribute('src');
+  });
+}
+
+function renderPortrait(speaker, sprite) {
+  const side = PORTRAIT_SIDE[speaker];
+  if (side && sprite) {
+    const el = portraitEls[side];
+    if (el) {
+      if (portraitState[side] !== sprite) {
+        el.src = 'sprites/' + sprite + '.png';
+        portraitState[side] = sprite;
+      }
+      el.classList.add('show');
+    }
+  }
+  // Highlight the active speaker, dim the other one.
+  ['left', 'right'].forEach(s => {
+    const el = portraitEls[s];
+    if (!el || !portraitState[s]) return;
+    el.classList.toggle('dim', s !== side);
+  });
 }
 
 function typeLine(text, onDone) {
@@ -1304,6 +1565,7 @@ function showDialogPage(index) {
   if (!page) { closeDialog(); return; }
   if (page.speaker) currentSpeaker = page.speaker;
   renderSpeaker(currentSpeaker);
+  renderPortrait(currentSpeaker, page.sprite);
   positionDialog();
   clearChoices();
   typeLine(page.text || '', () => {
@@ -1320,6 +1582,7 @@ function openDialog(data) {
   dialogQueue = lines;
   dialogIndex = 0;
   currentSpeaker = null;
+  resetPortraits();
   dialogOpen = true;
   dialogEl.classList.add('open');
   showDialogPage(0);
@@ -1351,6 +1614,7 @@ function closeDialog() {
   dialogIndex = 0;
   currentSpeaker = null;
   clearChoices();
+  resetPortraits();
   dialogEl.classList.remove('open', 'ready', 'has-name');
 }
 
@@ -1360,6 +1624,26 @@ dialogEl.addEventListener('pointerdown', e => { e.preventDefault(); advanceDialo
 //  UPDATE
 // ═══════════════════════════════════════════════════════════
 function update(dt) {
+  // Auto-walk into alignment before an interaction dialog opens
+  if (autoWalk) {
+    const diff = autoWalk.y - player.y;
+    const step = PLAYER_SPEED * dt;
+    if (Math.abs(diff) <= step) {
+      player.y = autoWalk.y;
+      player.moving = false;
+      player.dir = 'idle';
+      player.bobTime = 0;
+      const pending = autoWalk.interact;
+      autoWalk = null;
+      if (pending) openDialog(pending);
+      return;
+    }
+    player.y += Math.sign(diff) * step;
+    player.moving = true;
+    player.bobTime += dt;
+    player.dir = diff < 0 ? 'up' : 'idle';
+    return;
+  }
   if (dialogOpen) return;
   if (slotsOverlay.classList.contains('open')) return;
 
@@ -1373,6 +1657,7 @@ function update(dt) {
   if (dx !== 0 && dy !== 0) { dx *= 0.7071; dy *= 0.7071; }
 
   const moving = dx !== 0 || dy !== 0;
+
 
   if (moving) {
     let nextX = player.x;
@@ -1460,9 +1745,10 @@ function draw() {
   }
 
   // ── Dev grid overlay ──
-  drawGrid();
+  if (DEV_MODE) drawGrid();
 
   // ── Player ──
+  drawProps();
   drawPlayer();
 
   // ── Interact icon ──
@@ -1539,6 +1825,30 @@ function drawGrid() {
   ctx.restore();
 }
 
+// Static scene props (characters/objects placed on a cell).
+function drawProps() {
+  if (computerOpen) return;
+  (scene.props || []).forEach(prop => {
+    const img = sprites[prop.sprite];
+    if (!img || !img.complete || img.naturalWidth === 0) return;
+    const m = /^C(\d+)R(\d+)$/.exec(prop.cell || '');
+    if (!m) return;
+    const col = +m[1], row = +m[2];
+    const h = CHAR_H * (prop.scale || 1);
+    const w = (img.naturalWidth / img.naturalHeight) * h;
+    const x = (col + 0.5) * CELL_W;
+    const y = (row + 1) * CELL_H;
+    ctx.save();
+    ctx.globalAlpha = 0.25;
+    ctx.fillStyle = '#000';
+    ctx.beginPath();
+    ctx.ellipse(x, y + 2, w * 0.38, 10, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+    ctx.drawImage(img, x - w / 2, y - h, w, h);
+  });
+}
+
 function drawPlayer() {
   if (computerOpen) return;
   const sprKey = player.dir;
@@ -1600,6 +1910,12 @@ const slotsPageLabel = document.getElementById('slots-page-label');
 const slotsPrev      = document.getElementById('slots-prev');
 const slotsNext      = document.getElementById('slots-next');
 const slotsToast     = document.getElementById('slots-toast');
+
+let saveNameMode = 'save'; // 'save' | 'rename'
+let saveNameIndex = -1;
+const saveNameOverlay = document.getElementById('save-name-overlay');
+const saveNameInput   = document.getElementById('save-name-input');
+const saveNameTitle   = document.getElementById('save-name-title');
 
 function readSaves() {
   try {
@@ -1693,14 +2009,7 @@ function renderSlots() {
       renameBtn.textContent = 'RENAME';
       renameBtn.addEventListener('click', e => {
         e.stopPropagation();
-        const next = prompt('Save name (optional):', data.name || '');
-        if (next === null) return;
-        const all = readSaves();
-        if (!all[index]) return;
-        all[index].name = next.trim();
-        writeSaves(all);
-        renderSlots();
-        showToast(`Slot ${index + 1} renamed.`);
+        openSaveNamePrompt('rename', index, data.name || '');
       });
       actions.appendChild(renameBtn);
 
@@ -1731,20 +2040,12 @@ function renderSlots() {
       if (slotsMode === 'save') {
         if (data && !confirm(`Overwrite slot ${index + 1}?`)) return;
         const suggested = data && data.name ? data.name : '';
-        const name = prompt('Name this save (optional):', suggested);
-        if (name === null) return;
-        const all = readSaves();
-        all[index] = Object.assign(captureState(), { name: name.trim() });
-        if (writeSaves(all)) {
-          renderSlots();
-          showToast(`Game saved to slot ${index + 1}.`);
-        } else {
-          showToast('Could not save — storage unavailable.');
-        }
+        openSaveNamePrompt('save', index, suggested);
       } else {
         if (!data) return;
         applyState(data);
         closeSlots();
+        if (typeof startPlaying === 'function' && mainMenu.classList.contains('open')) startPlaying();
       }
     });
 
@@ -1764,6 +2065,43 @@ function closeSlots() {
   slotsOverlay.classList.remove('open');
 }
 
+function openSaveNamePrompt(mode, index, suggestedName) {
+  saveNameMode = mode;
+  saveNameIndex = index;
+  saveNameTitle.textContent = mode === 'rename' ? 'RENAME SAVE' : 'NAME THIS SAVE';
+  saveNameInput.value = suggestedName || '';
+  saveNameOverlay.classList.add('open');
+  setTimeout(() => saveNameInput.focus(), 50);
+}
+
+function closeSaveNamePrompt() {
+  saveNameOverlay.classList.remove('open');
+  saveNameInput.value = '';
+  saveNameIndex = -1;
+}
+
+function confirmSaveName() {
+  if (saveNameIndex < 0) return;
+  const name = saveNameInput.value.trim();
+  const all = readSaves();
+  if (saveNameMode === 'rename') {
+    if (!all[saveNameIndex]) return closeSaveNamePrompt();
+    all[saveNameIndex].name = name;
+    writeSaves(all);
+    renderSlots();
+    showToast(`Slot ${saveNameIndex + 1} renamed.`);
+  } else {
+    all[saveNameIndex] = Object.assign(captureState(), { name: name });
+    if (writeSaves(all)) {
+      renderSlots();
+      showToast(`Game saved to slot ${saveNameIndex + 1}.`);
+    } else {
+      showToast('Could not save — storage unavailable.');
+    }
+  }
+  closeSaveNamePrompt();
+}
+
 document.getElementById('btn-save').addEventListener('click', () => openSlots('save'));
 document.getElementById('btn-load').addEventListener('click', () => openSlots('load'));
 document.getElementById('slots-close').addEventListener('click', closeSlots);
@@ -1771,7 +2109,150 @@ slotsPrev.addEventListener('click', () => { if (slotsPage > 0) { slotsPage--; re
 slotsNext.addEventListener('click', () => { if (slotsPage < TOTAL_PAGES - 1) { slotsPage++; renderSlots(); } });
 slotsOverlay.addEventListener('click', e => { if (e.target === slotsOverlay) closeSlots(); });
 window.addEventListener('keydown', e => {
-  if (e.code === 'Escape' && slotsOverlay.classList.contains('open')) closeSlots();
+  if (e.code === 'Escape' && slotsOverlay.classList.contains('open') && !saveNameOverlay.classList.contains('open')) closeSlots();
+});
+
+// In-game save-name prompt handlers
+document.getElementById('save-name-confirm').addEventListener('click', confirmSaveName);
+document.getElementById('save-name-cancel').addEventListener('click', closeSaveNamePrompt);
+saveNameInput.addEventListener('keydown', e => {
+  if (e.code === 'Enter') { e.preventDefault(); confirmSaveName(); }
+  else if (e.code === 'Escape') { e.preventDefault(); closeSaveNamePrompt(); }
+});
+saveNameOverlay.addEventListener('click', e => { if (e.target === saveNameOverlay) closeSaveNamePrompt(); });
+
+
+// ═══════════════════════════════════════════════════════════
+//  MAIN MENU
+// ═══════════════════════════════════════════════════════════
+const mainMenu = document.getElementById('main-menu');
+const menuMain = document.getElementById('menu-main');
+const settingsPanel = document.getElementById('settings-panel');
+
+function latestSave() {
+  const saves = readSaves();
+  let best = null;
+  Object.keys(saves).forEach(k => {
+    const s = saves[k];
+    if (s && (!best || (s.savedAt || 0) > (best.savedAt || 0))) best = s;
+  });
+  return best;
+}
+
+function setGameChromeVisible(v) {
+  ['scene-controls'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.style.visibility = v ? 'visible' : 'hidden';
+  });
+}
+
+function openMainMenu() {
+  menuMain.classList.remove('hidden');
+  settingsPanel.classList.remove('open');
+  const cont = document.getElementById('menu-continue');
+  cont.disabled = !latestSave();
+  mainMenu.classList.add('open');
+  setGameChromeVisible(false);
+  menuIndex = cont.disabled ? 0 : 1;
+  paintMenuSelection();
+}
+
+function startPlaying() {
+  mainMenu.classList.remove('open');
+  setGameChromeVisible(true);
+  keys.up = keys.down = keys.left = keys.right = false;
+}
+
+document.getElementById('menu-new').addEventListener('click', () => {
+  CURRENT_SCENE = CURRENT_SCENE;
+  placeAtSpawn();
+  player.dir = 'idle';
+  player.moving = false;
+  closeDialog();
+  startPlaying();
+});
+
+document.getElementById('menu-continue').addEventListener('click', () => {
+  const s = latestSave();
+  if (!s) return;
+  applyState(s);
+  startPlaying();
+});
+
+document.getElementById('menu-load').addEventListener('click', () => {
+  openSlots('load');
+});
+
+document.getElementById('menu-settings').addEventListener('click', () => {
+  menuMain.classList.add('hidden');
+  settingsPanel.classList.add('open');
+  menuIndex = 0;
+  paintMenuSelection();
+});
+
+document.getElementById('menu-back').addEventListener('click', () => {
+  settingsPanel.classList.remove('open');
+  menuMain.classList.remove('hidden');
+  menuIndex = 3;
+  paintMenuSelection();
+});
+
+document.getElementById('set-touch').addEventListener('change', e => {
+  const on = e.target.checked;
+  ['dpad', 'btn-e'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.style.display = on ? 'grid' : '';
+    if (el && id === 'btn-e' && on) el.style.display = 'flex';
+  });
+});
+
+document.getElementById('set-hint').addEventListener('change', e => {
+  const el = document.getElementById('interact-hint');
+  if (el) el.style.opacity = e.target.checked ? '' : '0';
+  window.HINTS_ENABLED = e.target.checked;
+});
+
+
+// ── menu selection (keyboard + hover) ──
+function menuButtons() {
+  const panel = settingsPanel.classList.contains('open') ? settingsPanel : menuMain;
+  return Array.from(panel.querySelectorAll('.menu-btn'));
+}
+let menuIndex = 0;
+function paintMenuSelection() {
+  const btns = menuButtons();
+  if (!btns.length) return;
+  menuIndex = Math.max(0, Math.min(btns.length - 1, menuIndex));
+  btns.forEach((b, i) => b.classList.toggle('selected', i === menuIndex));
+}
+function moveMenu(delta) {
+  const btns = menuButtons();
+  if (!btns.length) return;
+  let i = menuIndex;
+  for (let n = 0; n < btns.length; n++) {
+    i = (i + delta + btns.length) % btns.length;
+    if (!btns[i].disabled) break;
+  }
+  menuIndex = i;
+  paintMenuSelection();
+}
+document.querySelectorAll('#main-menu .menu-btn').forEach(btn => {
+  btn.addEventListener('mouseenter', () => {
+    const btns = menuButtons();
+    const i = btns.indexOf(btn);
+    if (i >= 0 && !btn.disabled) { menuIndex = i; paintMenuSelection(); }
+  });
+});
+window.addEventListener('keydown', e => {
+  if (!mainMenu.classList.contains('open')) return;
+  if (slotsOverlay.classList.contains('open')) return;
+  if (e.code === 'ArrowUp' || e.code === 'KeyW') { e.preventDefault(); moveMenu(-1); }
+  else if (e.code === 'ArrowDown' || e.code === 'KeyS') { e.preventDefault(); moveMenu(1); }
+  else if (e.code === 'Enter' || e.code === 'Space' || e.code === 'KeyE') {
+    e.preventDefault();
+    const btn = menuButtons()[menuIndex];
+    if (btn && !btn.disabled) btn.click();
+  }
 });
 
 // ═══════════════════════════════════════════════════════════
@@ -1792,6 +2273,7 @@ function startGame() {
   placeAtSpawn();
   const overlay = document.getElementById('loading-screen');
   if (overlay) overlay.classList.add('hidden');
+  openMainMenu();
   setupDpad();
   preloadNeighbors(CURRENT_SCENE);
   lastTime = performance.now();
