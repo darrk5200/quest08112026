@@ -65,6 +65,8 @@
 
     #dialog .dialog-window {
       position: relative;
+      width: 100%;
+      height: 100%;
       background: rgba(0,0,0,0.62);
       border: 2px solid rgba(255,255,255,0.22);
       border-radius: 6px;
@@ -72,8 +74,10 @@
         inset 0 0 0 1px rgba(255,255,255,0.08),
         0 4px 18px rgba(0,0,0,0.45);
       backdrop-filter: blur(2px);
-      padding: 18px 22px 20px;
-      min-height: 96px;
+      padding: 14px 18px 16px;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
     }
 
     /* Name plate sits on top-left edge of the window, RPGMaker MZ style */
@@ -98,12 +102,12 @@
 
     #dialog .dialog-text {
       font-family: 'Chewy', 'Arial Black', sans-serif;
-      font-size: 30px;
-      line-height: 1.65;
+      font-size: 56px;
+      line-height: 1.35;
       word-spacing: 0.15em;
       text-shadow: 0 2px 0 rgba(0,0,0,0.7);
       white-space: pre-wrap;
-      min-height: 3.3em;
+      width: 100%;
     }
 
     /* Blinking "continue" arrow at the bottom of the window */
@@ -675,14 +679,14 @@
 window.addEventListener("DOMContentLoaded",function(){if(DEV_MODE){["cell-selector","grid-outputs"].forEach(function(id){var e=document.getElementById(id);if(e)e.style.display="";});}});</script>
 <div id="dev-tools">
   <div id="dev-label">DEV MODE — <span id="scene-name">scene-1</span> &nbsp;|&nbsp; Grid: 32×20 &nbsp;|&nbsp; <span id="cell-pos">C0R0</span></div>
-  <div id="cell-selector" style="display:none">
+  <div id="cell-selector">
     <label for="select-cells">
       <input id="select-cells" type="checkbox">
       Select Cells
     </label>
     <div id="cell-selector-help">Hold and drag across the room grid.</div>
   </div>
-  <div id="grid-outputs" style="display:none">
+  <div id="grid-outputs">
     <div id="grid-outputs-title">Grid Outputs <span id="grid-output-count">(0)</span></div>
     <div id="grid-outputs-list"><span id="grid-outputs-empty">No cells selected</span></div>
   </div>
@@ -788,7 +792,7 @@ const SCENES = {
           },
         ],
       },
-      // Doorway → stairwell
+      // Doorway → common room
       { cells: "C17R4C18R4C19R4", icon: "C18R2", goto: 'scene-2' },
       {
         cells: "C6R5C7R6",
@@ -804,7 +808,7 @@ const SCENES = {
 };
 
 SCENES['scene-2'] = {
-  background: 'assets/stairwell.png',
+  background: 'assets/commonroom.png',
   spawn: { col: 5, row: 15 },
   walkable: "C3R15C4R15C5R15C6R15C7R15C8R15C9R15C10R15C11R15C12R15C13R15C14R15C15R15C16R15C17R15C18R15C19R15C20R15C21R15C22R15C23R15C24R15C25R15C26R15C27R15C28R15C3R16C4R16C5R16C6R16C7R16C8R16C9R16C10R16C11R16C12R16C13R16C14R16C15R16C16R16C17R16C18R16C19R16C20R16C21R16C22R16C23R16C24R16C25R16C26R16C27R16C28R16C3R17C4R17C5R17C6R17C7R17C8R17C9R17C10R17C11R17C12R17C13R17C14R17C15R17C16R17C17R17C18R17C19R17C20R17C21R17C22R17C23R17C24R17C25R17C26R17C27R17C28R17C3R18C4R18C5R18C6R18C7R18C8R18C9R18C10R18C11R18C12R18C13R18C14R18C15R18C16R18C17R18C18R18C19R18C20R18C21R18C22R18C23R18C24R18C25R18C26R18C27R18C28R18C1R16C2R16C1R17C2R17C1R18C2R18C29R16C30R16C29R17C30R17C29R18C30R18C12R14C13R14C14R14C15R14C16R14C17R14C18R14C19R14C20R14",
   // Static characters/objects drawn in the scene at a given cell.
@@ -908,10 +912,15 @@ let OCCUPIED = parseOccupied(scene);
 
 // ── Interact-cells for the current scene ──────────────────
 // Each entry: trigger cells (Set) + the cell where the icon appears.
+// Persistent progress: which interactions have been seen, and past choices.
+const SEEN = new Set();
+const CHOICES = {};
+
 function buildInteracts(sc) {
   return (sc.interacts || []).map(def => {
   const m = /C(\d+)R(\d+)/.exec(def.icon) || [];
   return {
+    key: (sc.name || sc.background || '') + '|' + (def.icon || def.cells || ''),
     cells: parseCells(def.cells),
     iconCol: Number(m[1]),
     iconRow: Number(m[2]),
@@ -921,11 +930,13 @@ function buildInteracts(sc) {
     repeatLines: def.repeatLines || null,
     goto: def.goto || null,
     at: def.at || null,
-    seen: false,
+    get seen() { return SEEN.has(this.key); },
+    set seen(v) { if (v) SEEN.add(this.key); else SEEN.delete(this.key); },
   };
   });
 }
 let INTERACTS = buildInteracts(scene);
+
 
 // The interaction whose trigger cell the player is currently standing on.
 let activeInteract = null;
@@ -1378,6 +1389,7 @@ let dialogIndex = 0;
 let dialogTyping = false;
 let typeTimer = null;
 let currentSpeaker = null;
+let currentDialogKey = null;
 
 function positionDialog() {
   // Anchor the window inside the stage (same box in every scene) so it reads
@@ -1387,15 +1399,17 @@ function positionDialog() {
   const roomWidth  = stageW;
   const roomHeight = stageH;
   const margin     = Math.max(10, roomWidth * 0.025);
+  const dialogH    = Math.max(120, roomHeight * 0.19);
 
   dialogEl.style.left   = (roomLeft + margin) + 'px';
   dialogEl.style.width  = (roomWidth - margin * 2) + 'px';
-  dialogEl.style.top    = (roomTop + roomHeight - margin - Math.max(110, roomHeight * 0.24)) + 'px';
+  dialogEl.style.height = dialogH + 'px';
+  dialogEl.style.top    = (roomTop + roomHeight - margin - dialogH) + 'px';
 
-  // Scale typography with the room so it never dwarfs the scene.
-  const fs = Math.max(13, Math.min(30, roomWidth * 0.016));
+  // Scale typography with the room so it fills the dialogue container.
+  const fs = Math.max(24, Math.min(56, roomWidth * 0.065));
   dialogTextEl.style.fontSize = fs + 'px';
-  dialogNameEl.style.fontSize = Math.max(11, fs * 0.78) + 'px';
+  dialogNameEl.style.fontSize = Math.max(14, fs * 0.55) + 'px';
 }
 
 function renderSpeaker(key) {
@@ -1509,12 +1523,14 @@ function moveChoice(delta) {
 function pickChoice() {
   if (!choiceOptions) return;
   const opt = choiceOptions[choiceIndex];
+  if (opt) CHOICES[(currentDialogKey || 'dialog') + '#' + dialogIndex] = opt.label;
   clearChoices();
   closeDialog();
   if (opt && opt.action === 'computer') openComputer();
   else if (opt && opt.goto) changeScene(opt.goto, opt.at);
   else if (opt && opt.lines && opt.lines.length) openDialog({ lines: opt.lines });
 }
+
 
 // ── Computer screen view ──────────────────────────────────
 var computerViewEl = document.getElementById('computer-view');
@@ -1579,7 +1595,9 @@ function openDialog(data) {
   const lines = useRepeat ? data.repeatLines : (data.lines || []);
   if (!lines.length) return;
   data.seen = true;
+  currentDialogKey = data.key || null;
   dialogQueue = lines;
+
   dialogIndex = 0;
   currentSpeaker = null;
   resetPortraits();
@@ -1745,7 +1763,7 @@ function draw() {
   }
 
   // ── Dev grid overlay ──
-  if (DEV_MODE) drawGrid();
+  if (DEV_MODE || selectMode) drawGrid();
 
   // ── Player ──
   drawProps();
@@ -1946,20 +1964,32 @@ function captureState() {
     x: player.x,
     y: player.y,
     dir: player.dir,
+    seen: Array.from(SEEN),
+    choices: Object.assign({}, CHOICES),
     savedAt: Date.now(),
   };
 }
 
 function applyState(state) {
   if (!state) return;
+  closeDialog();
+  SEEN.clear();
+  (state.seen || []).forEach(k => SEEN.add(k));
+  Object.keys(CHOICES).forEach(k => delete CHOICES[k]);
+  Object.assign(CHOICES, state.choices || {});
+  if (state.scene && SCENES[state.scene] && state.scene !== CURRENT_SCENE) {
+    applyScene(state.scene);
+  }
   player.x = state.x;
   player.y = state.y;
   player.dir = state.dir || 'idle';
   player.moving = false;
   player.bobTime = 0;
+  autoWalk = null;
   keys.up = keys.down = keys.left = keys.right = false;
-  closeDialog();
+  updateDevLabel();
 }
+
 
 function cellLabel(state) {
   const col = Math.max(0, Math.min(COLS - 1, Math.floor(state.x / CELL_W)));
@@ -2164,7 +2194,9 @@ function startPlaying() {
 }
 
 document.getElementById('menu-new').addEventListener('click', () => {
-  CURRENT_SCENE = CURRENT_SCENE;
+  SEEN.clear();
+  Object.keys(CHOICES).forEach(k => delete CHOICES[k]);
+  if (CURRENT_SCENE !== 'scene-1') applyScene('scene-1');
   placeAtSpawn();
   player.dir = 'idle';
   player.moving = false;
