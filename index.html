@@ -14,7 +14,31 @@
     #canvas.cell-selecting { cursor: crosshair; }
 
     /* ── Interaction prompt ── */
+    /* ── Objective HUD ── */
+    #objective {
+      position: fixed;
+      display: none;
+      max-width: 34%;
+      background: rgba(0,0,0,0.62);
+      border: 2px solid rgba(255,255,255,0.35);
+      color: #f2f4ff;
+      font-family: 'Courier New', monospace;
+      padding: 8px 12px;
+      line-height: 1.35;
+      text-shadow: 2px 2px 0 #000;
+      pointer-events: none;
+      z-index: 40;
+    }
+    #objective.show { display: block; }
+    #objective .obj-title {
+      color: #ffd479;
+      letter-spacing: 1px;
+      display: block;
+      margin-bottom: 4px;
+    }
+
     #interact-hint {
+
       position: fixed;
       top: 50%;
       left: 50%;
@@ -128,23 +152,29 @@
     /* ── Choice list (Yes / No prompts) ── */
     #dialog .dialog-choices {
       display: none;
-      margin-top: 12px;
+      margin-top: 10px;
       gap: 8px;
-      flex-wrap: wrap;
+      flex-direction: column;
+      align-items: flex-start;
+      width: 100%;
     }
     #dialog.has-choices .dialog-choices { display: flex; }
+    #dialog.has-choices .dialog-window { height: auto; min-height: 100%; }
     #dialog.has-choices .dialog-arrow { display: none; }
     #dialog .dialog-choice {
       font-family: inherit;
-      font-size: inherit;
+      font-size: 15px;
+      line-height: 1.2;
       color: #f2f4ff;
       background: rgba(0,0,0,0.55);
       border: 2px solid rgba(255,255,255,0.22);
       border-radius: 5px;
-      padding: 6px 20px;
+      padding: 6px 18px;
       letter-spacing: 1px;
       cursor: pointer;
+      text-align: left;
       text-shadow: 0 2px 0 rgba(0,0,0,0.7);
+      flex: 0 0 auto;
     }
     #dialog .dialog-choice.selected {
       border-color: rgba(200,220,255,0.95);
@@ -327,14 +357,21 @@
     #load-pct { font-size: 13px; opacity: .8; }
     #scene-controls {
       position: fixed;
-      left: 50%;
-      transform: translateX(-50%);
+      right: 16px;
+      bottom: 16px;
       display: flex;
+      align-items: stretch;
       gap: 12px;
       z-index: 22;
       font-family: 'Courier New', monospace;
     }
     .scene-btn {
+      box-sizing: border-box;
+      height: 38px;
+      line-height: 1;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
       background: rgba(10,10,30,0.9);
       border: 2px solid #6699cc;
       border-radius: 6px;
@@ -343,7 +380,7 @@
       font-size: 14px;
       font-weight: bold;
       letter-spacing: 1px;
-      padding: 8px 22px;
+      padding: 0 22px;
       cursor: pointer;
     }
     .scene-btn:hover { background: rgba(40,70,120,0.95); color: #fff; }
@@ -600,6 +637,8 @@
 
 <canvas id="canvas"></canvas>
 <div id="interact-hint">[E]</div>
+<div id="objective"><span class="obj-title">OBJECTIVE</span><span id="objective-text"></span></div>
+
 <div id="computer-view">
   <img id="computer-img" src="assets/computer_screen.png" alt="Computer screen">
   <button type="button" id="computer-exit">EXIT</button>
@@ -700,6 +739,7 @@ window.addEventListener("DOMContentLoaded",function(){if(DEV_MODE){["cell-select
 
 <div id="scene-fade"></div>
 
+<script>document.write('<script src="story.js?v=' + Date.now() + '"><\/script>');</script>
 <script>
 // ═══════════════════════════════════════════════════════════
 //  CONFIGURATION
@@ -729,160 +769,7 @@ let CHAR_H       = CHAR_RATIO * ROOM_H;
 let BOB_AMP  = 3;   // room-pixels
 const BOB_FREQ = 8;   // cycles per second (while moving)
 
-// ── Scenes ─────────────────────────────
-// Each scene has its own background, walkable cells and spawn cell.
-const SCENES = {
-  'scene-1': {
-    background: 'assets/room1.png',
-    spawn: { col: 23, row: 9 },
-    walkable: "C6R6C7R6C8R6C6R7C7R7C8R7C6R8C7R8C8R8C6R9C7R9C8R9C6R10C7R10C8R10C6R11C7R11C8R11C6R12C7R12C8R12C6R13C7R13C8R13C6R14C7R14C8R14C6R15C7R15C8R15C9R15C10R15C11R15C12R15C13R15C14R15C15R15C16R15C17R15C18R15C19R15C20R15C21R15C22R15C23R15C24R15C25R15C26R15C27R15C9R7C9R8C9R9C9R10C9R11C9R12C9R13C9R14C6R5C4R7C5R7C9R7C10R7C11R7C12R7C13R7C14R7C15R7C16R7C17R7C18R7C19R7C20R7C21R7C22R7C23R7C24R7C25R7C26R7C27R7C9R8C10R8C11R8C12R8C13R8C14R8C15R8C16R8C17R8C18R8C19R8C20R8C21R8C22R8C23R8C24R8C25R8C26R8C27R8C11R6C12R6C13R6C14R6C15R6C16R6C17R6C18R6C19R6C20R6C21R6C16R5C17R5C18R5C19R5C20R5C21R5C17R4C18R4C19R4C21R5C21R6C21R7C21R8C20R7C21R7C22R7C23R7C24R7C25R7C26R7C20R8C21R8C22R8C23R8C24R8C25R8C26R8C17R14C18R14C19R14C20R14C21R14C22R14C23R14C24R14C25R14C16R6C17R6C18R6C19R6C20R6C16R7C17R7C18R7C19R7C20R7C16R8C17R8C18R8C19R8C20R8C16R9C17R9C18R9C19R9C20R9C16R10C17R10C18R10C19R10C20R10C16R11C17R11C18R11C19R11C20R11C16R12C17R12C18R12C19R12C20R12C17R13C18R13C19R13C20R13C17R14C18R14C19R14C20R14C21R9C22R9C23R9C24R9C13R13C14R13C13R14C14R14C13R10C13R11C13R12C10R9C11R9C12R9C10R12C11R12C12R12C13R12C13R9C13R10C13R11C13R12",
-
-    // Interact-cells: standing on any cell in `cells` shows the interact icon
-    // at the `icon` cell. Press E to open that interaction's dialogue.
-    // `lines` is an array of pages: { speaker, text }. A page with no speaker
-    // continues the previous speaker (name plate stays visible).
-    interacts: [
-      // Computer desk
-      {
-        cells: "C9R7C10R7",
-        icon: "C10R4",
-        lines: [
-          {
-            speaker: 'narrator',
-            text: "Would you like to use your computer?",
-            choices: [
-              { label: 'Yes', action: 'computer' },
-              { label: 'No' },
-            ],
-          },
-        ],
-      },
-      {
-        cells: "C22R7C23R7C24R7",
-        icon: "C23R3",
-        lines: [
-          { speaker: 'narrator', text: "Your closet is full of clothes, hanging there since the ancient ages" },
-          { speaker: 'narrator', text: "You do not feel like dressing fancy today" },
-        ],
-      },
-      {
-        cells: "C6R10C6R11C6R12",
-        icon: "C4R10",
-        lines: [
-          { speaker: 'narrator', text: "It's your TV, but you're way past the age of watching cartoons." },
-        ],
-        // Shown on every interaction after the first one.
-        repeatLines: [
-          { speaker: 'narrator', text: "You don't want to watch TV right now" },
-        ],
-      },
-      { cells: "C13R16C14R16C15R16C16R16C17R16", icon: "C15R17", lines: [] },
-      // Balcony doorway — asks before travelling
-      {
-        cells: "C13R15C14R15C15R15C16R15C17R15",
-        icon: "C15R13",
-        lines: [
-          {
-            speaker: 'narrator',
-            text: "Visit the balcony?",
-            choices: [
-              { label: 'Yes', goto: 'scene-1.5' },
-              { label: 'No' },
-            ],
-          },
-        ],
-      },
-      // Doorway → common room
-      { cells: "C17R4C18R4C19R4", icon: "C18R2", goto: 'scene-2' },
-      {
-        cells: "C6R5C7R6",
-        icon: "C7R3",
-        lines: [
-          { speaker: 'narrator', text: "Ah yes, your favorite flower pot" },
-          { speaker: 'narrator', text: "It is made of plastic though.. it's just for decoration" },
-        ],
-      },
-    ],
-  },
-
-};
-
-SCENES['scene-2'] = {
-  background: 'assets/commonroom.png',
-  spawn: { col: 5, row: 15 },
-  walkable: "C3R15C4R15C5R15C6R15C7R15C8R15C9R15C10R15C11R15C12R15C13R15C14R15C15R15C16R15C17R15C18R15C19R15C20R15C21R15C22R15C23R15C24R15C25R15C26R15C27R15C28R15C3R16C4R16C5R16C6R16C7R16C8R16C9R16C10R16C11R16C12R16C13R16C14R16C15R16C16R16C17R16C18R16C19R16C20R16C21R16C22R16C23R16C24R16C25R16C26R16C27R16C28R16C3R17C4R17C5R17C6R17C7R17C8R17C9R17C10R17C11R17C12R17C13R17C14R17C15R17C16R17C17R17C18R17C19R17C20R17C21R17C22R17C23R17C24R17C25R17C26R17C27R17C28R17C3R18C4R18C5R18C6R18C7R18C8R18C9R18C10R18C11R18C12R18C13R18C14R18C15R18C16R18C17R18C18R18C19R18C20R18C21R18C22R18C23R18C24R18C25R18C26R18C27R18C28R18C1R16C2R16C1R17C2R17C1R18C2R18C29R16C30R16C29R17C30R17C29R18C30R18C12R14C13R14C14R14C15R14C16R14C17R14C18R14C19R14C20R14",
-  // Static characters/objects drawn in the scene at a given cell.
-  props: [
-    { sprite: 'june_idle', cell: 'C10R15', scale: 0.9325 },
-  ],
-  interacts: [
-    // Left door (203) — back down into the bedroom
-    { cells: "C4R15C5R15C6R15C7R15",      icon: "C5R13",  goto: 'scene-1', at: 'C18R4' },
-    { cells: "C24R15C25R15C26R15C27R15C28R15", icon: "C26R13", lines: [] },
-    { cells: "C12R14C13R14C14R14",        icon: "C13R12", lines: [] },
-    { cells: "C18R14C19R14C20R14",        icon: "C19R12", lines: [] },
-    // June, waiting on the landing
-    {
-      cells: "C8R15C9R15C10R15C11R15C8R16C9R16C10R16C11R16",
-      icon: "C10R13",
-      lines: [
-        { speaker: 'june', sprite: 'june_idle-a', text: "You finally stepped out of the house." },
-        { speaker: 'june', sprite: 'june_idle-b', text: "What took you so long?" },
-        { speaker: 'july', sprite: 'july_idle',   text: "It's your fault to begin with." },
-        { speaker: 'june', sprite: 'june_upset',  text: "Yeah, yeah.. surely it's because I" },
-      ],
-    },
-  ],
-};
-
-// ── Balcony ───────────────────────────────
-SCENES['scene-1.5'] = {
-  background: 'assets/balcony.png',
-  // Rendered at 60% of the stage-fitted size.
-  fitScale: 0.6,
-  spawn: { col: 15, row: 14 },
-  walkable: "C7R9C8R9C9R9C10R9C11R9C12R9C13R9C14R9C15R9C16R9C17R9C18R9C19R9C20R9C21R9C22R9C23R9C24R9C7R10C8R10C9R10C10R10C11R10C12R10C13R10C14R10C15R10C16R10C17R10C18R10C19R10C20R10C21R10C22R10C23R10C24R10C7R11C8R11C9R11C10R11C11R11C12R11C13R11C14R11C15R11C16R11C17R11C18R11C19R11C20R11C21R11C22R11C23R11C24R11C7R12C8R12C9R12C10R12C11R12C12R12C13R12C14R12C15R12C16R12C17R12C18R12C19R12C20R12C21R12C22R12C23R12C24R12C7R13C8R13C9R13C10R13C11R13C12R13C13R13C14R13C15R13C16R13C17R13C18R13C19R13C20R13C21R13C22R13C23R13C24R13C4R11C5R11C6R11C4R12C5R12C6R12C4R13C5R13C6R13C25R11C26R11C27R11C25R12C26R12C27R12C25R13C26R13C27R13C9R14C10R14C11R14C12R14C13R14C14R14C15R14C16R14C17R14C18R14C19R14C20R14C21R14C22R14",
-  interacts: [
-    // Jump off the balcony prompt
-    {
-      cells: "C12R9C13R9C14R9C15R9C16R9C17R9C18R9C19R9",
-      icon: "C15R7",
-      lines: [
-        {
-          speaker: 'narrator',
-          text: "Jump off the balcony?",
-          choices: [
-            { label: 'Yes' },
-            { label: 'No' },
-          ],
-        },
-      ],
-    },
-    // Step back inside
-    {
-      cells: "C12R14C13R14C14R14C15R14C16R14C17R14C18R14C19R14",
-      icon: "C15R12",
-      lines: [
-        {
-          speaker: 'narrator',
-          text: "Return to your room?",
-          choices: [
-            { label: 'Yes', goto: 'scene-1', at: 'C15R15' },
-            { label: 'No' },
-          ],
-        },
-      ],
-    },
-  ],
-};
-
-// ── Characters ─────────────────────────────
-// Each speaker gets a display name and a dialogue text colour.
-const CHARACTERS = {
-  narrator: { name: 'Narrator', dialogue_color: 'white', hide_name: true },
-  july:     { name: 'July',     dialogue_color: '#7ab8ff' },
-  june:     { name: 'June',     dialogue_color: '#ff9ec7' },
-};
+// Scenes, characters and dialogue live in story.js
 
 let CURRENT_SCENE = 'scene-1';
 let scene = SCENES[CURRENT_SCENE];
@@ -930,12 +817,123 @@ function buildInteracts(sc) {
     repeatLines: def.repeatLines || null,
     goto: def.goto || null,
     at: def.at || null,
+    script: def.script || null,
+    once: def.once !== false,
     get seen() { return SEEN.has(this.key); },
     set seen(v) { if (v) SEEN.add(this.key); else SEEN.delete(this.key); },
   };
   });
 }
 let INTERACTS = buildInteracts(scene);
+
+// ── Story flags (choices remembered across the playthrough) ──
+const FLAGS = {};
+window.FLAGS = FLAGS;
+
+// ── Dynamic actors (characters spawned/moved by cutscene scripts) ──
+const ACTORS = [];
+function actorAnchor(str) {
+  const m = /C(\d+)R(\d+)/.exec(String(str || ''));
+  return m ? { x: (+m[1] + 0.5) * CELL_W, y: (+m[2] + 1) * CELL_H } : null;
+}
+function getActor(id) { return ACTORS.find(a => a.id === id) || null; }
+function addActor(spec) {
+  removeActor(spec.id);
+  const p = actorAnchor(spec.at) || { x: 0, y: 0 };
+  const a = { id: spec.id, sprite: spec.sprite, baseSprite: spec.sprite, x: p.x, y: p.y, scale: spec.scale || 1, path: [], done: null, facing: null, flip: false };
+  ACTORS.push(a);
+  return a;
+}
+function removeActor(id) {
+  const i = ACTORS.findIndex(a => a.id === id);
+  if (i >= 0) ACTORS.splice(i, 1);
+}
+function moveActor(id, cells, done) {
+  const a = getActor(id);
+  if (!a) { if (done) done(); return; }
+  a.path = (cells || []).map(actorAnchor).filter(Boolean);
+  a.done = done || null;
+  if (!a.path.length && done) { a.done = null; done(); }
+}
+function setActorFacing(a, dx, dy) {
+  const base = a.baseSprite || a.sprite;
+  if (!String(base).startsWith('june')) return;
+  if (Math.abs(dx) > Math.abs(dy)) {
+    a.facing = 'june_right';
+    a.flip = dx < 0;             // mirror the right-facing sprite when walking left
+  } else if (dy < 0) {
+    a.facing = 'june_up';
+    a.flip = false;
+  } else {
+    a.facing = base;             // walking down/toward camera keeps the idle sprite
+    a.flip = false;
+  }
+}
+
+function updateActors(dt) {
+  ACTORS.forEach(a => {
+    if (!a.path || !a.path.length) return;
+    const t = a.path[0];
+    const step = PLAYER_SPEED * 0.75 * dt;
+    const dx = t.x - a.x, dy = t.y - a.y;
+    const d = Math.hypot(dx, dy);
+    setActorFacing(a, dx, dy);
+    if (d <= step) {
+      a.x = t.x; a.y = t.y; a.path.shift();
+      if (!a.path.length && a.done) {
+        a.facing = null; a.flip = false;
+        const f = a.done; a.done = null; f();
+      }
+    } else {
+      a.x += (dx / d) * step;
+      a.y += (dy / d) * step;
+    }
+  });
+}
+
+// ── Cutscene script runner ──
+let cutscene = false;
+let scriptWalk = null;
+
+function walkPlayerTo(cellStr, done) {
+  const target = actorAnchor(cellStr);
+  if (!target) { if (done) done(); return; }
+  scriptWalk = { x: target.x, y: target.y, done: done || null };
+}
+
+function runScript(steps, done) {
+  cutscene = true;
+  keys.up = keys.down = keys.left = keys.right = false;
+  let i = 0;
+  const next = () => {
+    if (i >= (steps || []).length) { cutscene = false; if (done) done(); return; }
+    runStep(steps[i++], next);
+  };
+  next();
+}
+
+function runStep(s, next) {
+  if (!s) { next(); return; }
+  if (s.wait) { setTimeout(next, s.wait); return; }
+  if (s.parallel) {
+    let n = s.parallel.length;
+    if (!n) { next(); return; }
+    const fin = () => { if (--n === 0) next(); };
+    s.parallel.forEach(st => runStep(st, fin));
+    return;
+  }
+  if (s.playerTo) { walkPlayerTo(s.playerTo, next); return; }
+  if (s.actor) { addActor(s.actor); next(); return; }
+  if (s.actorTo) { moveActor(s.actorTo.id, [s.actorTo.to], next); return; }
+  if (s.actorPath) { moveActor(s.actorPath.id, s.actorPath.path, next); return; }
+  if (s.setSprite) { const a = getActor(s.setSprite.id); if (a) a.sprite = s.setSprite.sprite; next(); return; }
+  if (s.removeActor) { removeActor(s.removeActor); next(); return; }
+  if (s.objective) { setObjective(s.objective); next(); return; }
+  if (s.flags) { Object.assign(FLAGS, s.flags); next(); return; }
+  if (s.goto) { changeScene(s.goto, s.at); next(); return; }
+  if (s.dialog) { openDialog({ lines: s.dialog }, next); return; }
+  next();
+}
 
 
 // The interaction whose trigger cell the player is currently standing on.
@@ -1062,6 +1060,7 @@ loadImage('menuBg', 'icons/game_main.jpg');
 // Character sprites used for scene props and dialogue portraits (non-blocking).
 const CHAR_SPRITES = [
   'june_idle', 'june_idle-a', 'june_idle-b', 'june_upset', 'june_smile', 'june_smug', 'june_anxious',
+  'june_up', 'june_right',
   'july_idle', 'july_smile', 'july_angry',
 ];
 CHAR_SPRITES.forEach(name => {
@@ -1091,15 +1090,35 @@ function resize() {
 
   positionSceneControls();
   positionComputer();
+  positionObjective();
   if (dialogOpen) positionDialog();
 }
 
+// ── Objective HUD ─────────────────────────────────────────
+const objectiveEl     = document.getElementById('objective');
+const objectiveTextEl = document.getElementById('objective-text');
+
+function positionObjective() {
+  if (!objectiveEl) return;
+  const margin = Math.max(10, stageW * 0.025);
+  objectiveEl.style.left = (stageLeft + margin) + 'px';
+  objectiveEl.style.top  = (stageTop + margin) + 'px';
+  const fs = Math.max(11, Math.min(20, stageW * 0.019));
+  objectiveEl.style.fontSize = fs + 'px';
+  objectiveEl.style.maxWidth = (stageW * 0.42) + 'px';
+}
+
+function setObjective(text) {
+  if (!objectiveEl) return;
+  if (!text) { objectiveEl.classList.remove('show'); return; }
+  objectiveTextEl.textContent = text;
+  objectiveEl.classList.add('show');
+  positionObjective();
+}
+
+
 function positionSceneControls() {
-  const controls = document.getElementById('scene-controls');
-  if (!controls) return;
-  const roomBottom = stageTop + stageH;
-  const top = Math.min(roomBottom + 10, window.innerHeight - 52);
-  controls.style.top = Math.max(8, top) + 'px';
+  // Fixed to the bottom-right corner via CSS; nothing to compute.
 }
 window.addEventListener('resize', resize);
 resize();
@@ -1309,7 +1328,7 @@ let autoWalk = null;
 function tryInteract() {
   const { col, row } = getPlayerCell();
   if (!activeInteract) return;
-  if (autoWalk) return;
+  if (autoWalk || cutscene || scriptWalk) return;
   if (activeInteract.goto) { changeScene(activeInteract.goto, activeInteract.at); return; }
   // Walk the player down to the bottom of their cell so they line up
   // with NPC sprites (which are anchored at their cell's base).
@@ -1319,10 +1338,20 @@ function tryInteract() {
     autoWalk = { y: targetY, interact: activeInteract };
     return;
   }
-  openDialog(activeInteract);
+  runInteract(activeInteract);
 }
 
 
+function runInteract(it) {
+  if (!it) return;
+  if (it.script) {
+    if (it.seen && it.once) return;
+    it.seen = true;
+    runScript(it.script);
+    return;
+  }
+  openDialog(it);
+}
 
 // ── Scene switching ───────────────────────────────────────
 let sceneTransitioning = false;
@@ -1358,6 +1387,9 @@ function applyScene(name, at) {
   INTERACTS = buildInteracts(scene);
   activeInteract = null;
   autoWalk = null;
+  scriptWalk = null;
+  cutscene = false;
+  ACTORS.length = 0;
   player.dir = 'idle';
   player.moving = false;
   player.bobTime = 0;
@@ -1390,6 +1422,7 @@ let dialogTyping = false;
 let typeTimer = null;
 let currentSpeaker = null;
 let currentDialogKey = null;
+let dialogOnEnd = null;
 
 function positionDialog() {
   // Anchor the window inside the stage (same box in every scene) so it reads
@@ -1399,17 +1432,26 @@ function positionDialog() {
   const roomWidth  = stageW;
   const roomHeight = stageH;
   const margin     = Math.max(10, roomWidth * 0.025);
+  const hasChoices = dialogEl.classList.contains('has-choices');
   const dialogH    = Math.max(120, roomHeight * 0.19);
 
   dialogEl.style.left   = (roomLeft + margin) + 'px';
   dialogEl.style.width  = (roomWidth - margin * 2) + 'px';
-  dialogEl.style.height = dialogH + 'px';
-  dialogEl.style.top    = (roomTop + roomHeight - margin - dialogH) + 'px';
+  // Anchor from the bottom so a taller (choice) window grows upward instead of
+  // spilling out of the stage.
+  dialogEl.style.top    = 'auto';
+  dialogEl.style.bottom = (window.innerHeight - (roomTop + roomHeight) + margin) + 'px';
+  dialogEl.style.height = hasChoices ? 'auto' : dialogH + 'px';
+  dialogEl.style.minHeight = hasChoices ? dialogH + 'px' : '';
+  dialogEl.style.maxHeight = (roomHeight - margin * 2) + 'px';
 
   // Scale typography with the room so it fills the dialogue container.
-  const fs = Math.max(24, Math.min(56, roomWidth * 0.065));
+  const fs = Math.max(16, Math.min(34, roomWidth * 0.040));
   dialogTextEl.style.fontSize = fs + 'px';
   dialogNameEl.style.fontSize = Math.max(14, fs * 0.55) + 'px';
+  dialogEl.querySelectorAll('.dialog-choice').forEach(function (b) {
+    b.style.fontSize = Math.max(13, fs * 0.62) + 'px';
+  });
 }
 
 function renderSpeaker(key) {
@@ -1506,6 +1548,7 @@ function showChoices(options) {
   });
   dialogEl.classList.add('has-choices');
   highlightChoice();
+  positionDialog();
 }
 
 function highlightChoice() {
@@ -1524,11 +1567,15 @@ function pickChoice() {
   if (!choiceOptions) return;
   const opt = choiceOptions[choiceIndex];
   if (opt) CHOICES[(currentDialogKey || 'dialog') + '#' + dialogIndex] = opt.label;
+  if (opt && opt.flags) Object.assign(FLAGS, opt.flags);
+  const cb = dialogOnEnd;
+  dialogOnEnd = null;
   clearChoices();
   closeDialog();
-  if (opt && opt.action === 'computer') openComputer();
-  else if (opt && opt.goto) changeScene(opt.goto, opt.at);
-  else if (opt && opt.lines && opt.lines.length) openDialog({ lines: opt.lines });
+  if (opt && opt.action === 'computer') { if (cb) cb(); openComputer(); }
+  else if (opt && opt.goto) { if (cb) cb(); changeScene(opt.goto, opt.at); }
+  else if (opt && opt.lines && opt.lines.length) openDialog({ lines: opt.lines }, cb);
+  else if (cb) cb();
 }
 
 
@@ -1584,16 +1631,19 @@ function showDialogPage(index) {
   renderPortrait(currentSpeaker, page.sprite);
   positionDialog();
   clearChoices();
+  if (page.objective) setObjective(page.objective);
+  if (page.completeObjective) { setObjective(''); FLAGS.objective_1 = true; }
   typeLine(page.text || '', () => {
     if (page.choices && page.choices.length) showChoices(page.choices);
   });
 }
 
-function openDialog(data) {
-  if (!data) return;
+function openDialog(data, onEnd) {
+  if (!data) { if (onEnd) onEnd(); return; }
+  dialogOnEnd = onEnd || null;
   const useRepeat = data.seen && data.repeatLines && data.repeatLines.length;
   const lines = useRepeat ? data.repeatLines : (data.lines || []);
-  if (!lines.length) return;
+  if (!lines.length) { const cb = dialogOnEnd; dialogOnEnd = null; if (cb) cb(); return; }
   data.seen = true;
   currentDialogKey = data.key || null;
   dialogQueue = lines;
@@ -1625,6 +1675,8 @@ function advanceDialog() {
 }
 
 function closeDialog() {
+  const endCb = dialogOnEnd;
+  dialogOnEnd = null;
   clearTimeout(typeTimer);
   dialogTyping = false;
   dialogOpen = false;
@@ -1634,6 +1686,7 @@ function closeDialog() {
   clearChoices();
   resetPortraits();
   dialogEl.classList.remove('open', 'ready', 'has-name');
+  if (endCb) endCb();
 }
 
 dialogEl.addEventListener('pointerdown', e => { e.preventDefault(); advanceDialog(); });
@@ -1642,6 +1695,35 @@ dialogEl.addEventListener('pointerdown', e => { e.preventDefault(); advanceDialo
 //  UPDATE
 // ═══════════════════════════════════════════════════════════
 function update(dt) {
+  updateActors(dt);
+
+  // Scripted player movement during a cutscene
+  if (scriptWalk) {
+    const dx = scriptWalk.x - player.x;
+    const dy = scriptWalk.y - player.y;
+    const d = Math.hypot(dx, dy);
+    const step = PLAYER_SPEED * dt;
+    if (d <= step) {
+      player.x = scriptWalk.x;
+      player.y = scriptWalk.y;
+      player.moving = false;
+      player.dir = 'idle';
+      player.bobTime = 0;
+      const cb = scriptWalk.done;
+      scriptWalk = null;
+      if (cb) cb();
+    } else {
+      player.x += (dx / d) * step;
+      player.y += (dy / d) * step;
+      player.moving = true;
+      player.bobTime += dt;
+      player.dir = Math.abs(dx) >= Math.abs(dy) ? (dx < 0 ? 'left' : 'right') : (dy < 0 ? 'up' : 'idle');
+    }
+    updateInteractHint();
+    return;
+  }
+  if (cutscene) { player.moving = false; updateInteractHint(); return; }
+
   // Auto-walk into alignment before an interaction dialog opens
   if (autoWalk) {
     const diff = autoWalk.y - player.y;
@@ -1653,7 +1735,7 @@ function update(dt) {
       player.bobTime = 0;
       const pending = autoWalk.interact;
       autoWalk = null;
-      if (pending) openDialog(pending);
+      if (pending) runInteract(pending);
       return;
     }
     player.y += Math.sign(diff) * step;
@@ -1729,7 +1811,7 @@ function updateInteractHint() {
   activeInteract = INTERACTS.find(it => it.cells.has(`${col},${row}`)) || null;
 
   const hint = document.getElementById('interact-hint');
-  if (activeInteract) {
+  if (activeInteract && !cutscene && !scriptWalk && !dialogOpen) {
     // Position hint above player in screen coords
     const sx = offsetX + player.x * scale;
     const sy = offsetY + player.y * scale;
@@ -1865,6 +1947,30 @@ function drawProps() {
     ctx.restore();
     ctx.drawImage(img, x - w / 2, y - h, w, h);
   });
+
+  ACTORS.forEach(a => {
+    const key = (a.facing && sprites[a.facing]) ? a.facing : a.sprite;
+    const img = sprites[key];
+    if (!img || !img.complete || img.naturalWidth === 0) return;
+    const h = CHAR_H * (a.scale || 1);
+    const w = (img.naturalWidth / img.naturalHeight) * h;
+    ctx.save();
+    ctx.globalAlpha = 0.25;
+    ctx.fillStyle = '#000';
+    ctx.beginPath();
+    ctx.ellipse(a.x, a.y + 2, w * 0.38, 10, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+    if (a.flip) {
+      ctx.save();
+      ctx.translate(a.x, 0);
+      ctx.scale(-1, 1);
+      ctx.drawImage(img, -w / 2, a.y - h, w, h);
+      ctx.restore();
+    } else {
+      ctx.drawImage(img, a.x - w / 2, a.y - h, w, h);
+    }
+  });
 }
 
 function drawPlayer() {
@@ -1966,6 +2072,7 @@ function captureState() {
     dir: player.dir,
     seen: Array.from(SEEN),
     choices: Object.assign({}, CHOICES),
+    flags: Object.assign({}, FLAGS),
     savedAt: Date.now(),
   };
 }
@@ -1977,6 +2084,11 @@ function applyState(state) {
   (state.seen || []).forEach(k => SEEN.add(k));
   Object.keys(CHOICES).forEach(k => delete CHOICES[k]);
   Object.assign(CHOICES, state.choices || {});
+  Object.keys(FLAGS).forEach(k => delete FLAGS[k]);
+  Object.assign(FLAGS, state.flags || {});
+  ACTORS.length = 0;
+  cutscene = false;
+  scriptWalk = null;
   if (state.scene && SCENES[state.scene] && state.scene !== CURRENT_SCENE) {
     applyScene(state.scene);
   }
@@ -2170,11 +2282,12 @@ function latestSave() {
 }
 
 function setGameChromeVisible(v) {
-  ['scene-controls'].forEach(id => {
+  ['scene-controls', 'objective'].forEach(id => {
     const el = document.getElementById(id);
     if (el) el.style.visibility = v ? 'visible' : 'hidden';
   });
 }
+
 
 function openMainMenu() {
   menuMain.classList.remove('hidden');
@@ -2193,16 +2306,23 @@ function startPlaying() {
   keys.up = keys.down = keys.left = keys.right = false;
 }
 
+
 document.getElementById('menu-new').addEventListener('click', () => {
   SEEN.clear();
   Object.keys(CHOICES).forEach(k => delete CHOICES[k]);
+  Object.keys(FLAGS).forEach(k => delete FLAGS[k]);
+  ACTORS.length = 0;
+  cutscene = false;
+  scriptWalk = null;
   if (CURRENT_SCENE !== 'scene-1') applyScene('scene-1');
   placeAtSpawn();
   player.dir = 'idle';
   player.moving = false;
   closeDialog();
   startPlaying();
+  openDialog({ lines: INTRO_LINES });
 });
+
 
 document.getElementById('menu-continue').addEventListener('click', () => {
   const s = latestSave();
