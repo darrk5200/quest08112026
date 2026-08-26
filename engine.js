@@ -273,7 +273,7 @@ function collectSpriteNames() {
   walk(CHARACTERS);
   walk(INTRO_LINES);
   // Player movement sheets are engine-owned, not referenced in episode data.
-  ['idle', 'left', 'right', 'up'].forEach(n => found.add(n));
+  ['idle', 'left', 'right', 'up', 'june_right', 'june_up'].forEach(n => found.add(n));
   return [...found];
 }
 
